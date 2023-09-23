@@ -1,16 +1,8 @@
-defaults:
-  - _self_
-  - hydra: inference
 
-# path to work directory
+# Directories
 work_dir: ${hydra:runtime.cwd}
-# path to data directory
 data_dir: ${work_dir}/data
 # path to various objects in data directory
 models_dir: ${data_dir}/model_settings
-note_prompts_dir: ${data_dir}/note_prompts
-message_prompts_dir: ${data_dir}/message_prompts
-communication_protocols_dir: ${data_dir}/communication_protocols
-
 # path to output directory, created dynamically by hydra
 output_dir: ${hydra:runtime.output_dir}
