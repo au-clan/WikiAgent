@@ -1,4 +1,6 @@
-
+defaults:
+  - __self__
+  - model_name: llama_7b_chat_hf
 # Directories
 work_dir: ${hydra:runtime.cwd}
 data_dir: ${work_dir}/data
