@@ -2,6 +2,7 @@ defaults:
   - _self_
   - experiments: defaults_inference
   - model: llama_7b_chat_hf
+  - hydra: inference
 
 # Directories
 work_dir: ${hydra:runtime.cwd}

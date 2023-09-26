@@ -44,5 +44,3 @@ def printc(x, c='r'):
     }
     reset_color = '\033[0m'
     print(f'{m2.get(m1.get(c, c), c)}{x}{reset_color}')
-
-

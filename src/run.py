@@ -1,24 +1,25 @@
 import hydra
-from omegaconf import DictConfig, OmegaConf, open_dict
+from omegaconf import DictConfig
 from hydra.utils import instantiate
 from model_utils import SystemMessage, HumanMessage
+from logger import get_logger
 from utils import printc
-import torch
-import os
 
-# set env var HYDRA_FULL_ERROR=1 
-os.environ['HYDRA_FULL_ERROR'] = '1'
+#os.environ['HYDRA_FULL_ERROR'] = '1'
+
+log = get_logger()
 
 @hydra.main(version_base = None, config_path="configs", config_name="config")
 def main(cfg: DictConfig):
     messages = [SystemMessage("You're a nice assistant"), 
                 HumanMessage("What is 1+1?"),
                 ]
-    print(OmegaConf.to_yaml(cfg))
+    log.debug("Initializing model")
     model = instantiate(cfg.model)
-    print("model name:", model.model_name)
-    print(model.half_precision)
-    printc(model(messages))
+    log.debug(f"model name: {model.model_name}")
+
+    _ = model(messages)
+    log.debug(f"History:\n{model.get_history_str()}")
 
 if __name__ == "__main__":
     main()

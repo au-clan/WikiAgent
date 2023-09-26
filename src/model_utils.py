@@ -237,6 +237,11 @@ class ChatModel:
     def __repr__(self):
         return f'ChatModel("model_name"={self.model_name}, "model_provider"={self.model_provider})'
 
+    def get_history_str(self) -> str:
+        history_str = ""
+        for msg in self.messages:
+            history_str += f"{msg.role}: {msg.content}\n"
+        return history_str
 
 def get_model_pricing(model_name):
     model_details = get_model_details(model_name=model_name)
