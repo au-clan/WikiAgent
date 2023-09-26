@@ -1,10 +1,12 @@
 defaults:
-  - __self__
-  - model_name: llama_7b_chat_hf
+  - _self_
+  - experiments: defaults_inference
+  - model: llama_7b_chat_hf
+
 # Directories
 work_dir: ${hydra:runtime.cwd}
 data_dir: ${work_dir}/data
-# path to various objects in data directory
-models_dir: ${data_dir}/model_settings
 # path to output directory, created dynamically by hydra
 output_dir: ${hydra:runtime.output_dir}
+# determines the log directory's parent folder
+experiment_name: inference

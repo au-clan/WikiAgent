@@ -9,7 +9,6 @@ import sys
 sys.path.append("src/")
 from utils import get_api_key
 
-
 @define
 class BaseMessage:
     role: str = attr.ib()
@@ -87,41 +86,39 @@ class ChatModel:
     #       (2) expand support
     #       (3) move to aiohttp REST API calls
     #       (4) add streaming mode
-    # prepare payload
-    # make the call
-    # process output
     """
-    model_provider: str = 'openai'
-    model_name: str = 'gpt-3.5-turbo'
+    model_provider: str = field(default='openai')
+    model_name: str = field(default='gpt-3.5-turbo')
     model_key: str = field(default=None)
     model_key_path: Any = field(default='secrets.json')
     model_key_name: Any = field(default=None)
     model: Any = field(default=None)
 
-    debug_mode: bool = False
-    temperature: float = 0.0
+    debug_mode: bool = field(default=False)
+    temperature: float = field(default=0.0)
     generation_params: dict = field(factory=dict)
-    context_max_tokens: int = 1024
-    prompt_cost: float = 0
-    completion_cost: float = 0
-    tpm: int = 0
-    rpm: int = 0
+    context_max_tokens: int = field(default=1024)
+    prompt_cost: float = field(default=0)
+    completion_cost: float = field(default=0)
+    tpm: int = field(default=0)
+    rpm: int = field(default=0)
     api_info: dict = field(factory=dict)
     messages: list = field(factory=list)
-    response: str = ""
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
+    response: str = field(default="")
+    prompt_tokens: int = field(default=0)
+    completion_tokens: int = field(default=0)
+    device = field(default='cpu')
 
     # keep track of costs
-    budget: float = 10.
-    session_prompt_costs: float = 0.
-    session_completion_costs: float = 0.
+    budget: float = field(default=10.)
+    session_prompt_costs: float = field(default=0.)
+    session_completion_costs: float = field(default=0.)
 
     def __attrs_post_init__(self):
 
         if self.model_key is None:
             self.model_key = get_api_key(fname=self.model_key_path, provider=self.model_provider,
-                                         key=self.model_key_name)
+                                            key=self.model_key_name)
         # get model api details
         model_details = get_model_details(self.model_name)
         self.context_max_tokens = model_details['max_tokens']
@@ -135,6 +132,7 @@ class ChatModel:
         # only single generations currently implemented
         if self.generation_params.get("n", 1) >= 2:
             raise NotImplementedError("Need to implement for more than one generation.")
+
 
     def __call__(self, messages: List[BaseMessage]):
         """

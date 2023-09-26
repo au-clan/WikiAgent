@@ -1,1 +1,1 @@
-
+from .huggingface_model import HuggingFaceModel

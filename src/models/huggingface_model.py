@@ -28,6 +28,7 @@ class HuggingFaceModel(ChatModel):
     tokenizer: AutoTokenizer = None  # The tokenizer to be used
     model: AutoModelForCausalLM = None  # The model to be used
     half_precision: bool = True
+    num_threads: int = 16 # number of CPU cores to use
 
     def __attrs_post_init__(self):
         """
@@ -49,6 +50,9 @@ class HuggingFaceModel(ChatModel):
         concat_msges = ""
         for msg in msges:
             concat_msges += msg + "\n"
+
+        self.prompt_tokens = self.estimate_tokens(concat_msges)
+
         return self.tokenize(concat_msges)
 
     def _generate(self, data):
@@ -84,7 +88,10 @@ class HuggingFaceModel(ChatModel):
                                             return_tensors='pt',
                                             padding=True,
                                             max_length=700,
-                                            truncation=True).to("cuda")
+                                            truncation=True)
+        if self.device == "cuda":
+            token_input = token_input.cuda()
+        
         return token_input
 
     def init_model(self):
@@ -92,10 +99,11 @@ class HuggingFaceModel(ChatModel):
         This method initializes the model and tokenizer.
         """
         self.model = AutoModelForCausalLM.from_pretrained(self.model_name,
-                                                          device_map="auto",
-                                                          torch_dtype=torch.float16)
+                                                          #device_map="auto",
+                                                          torch_dtype=torch.float16 if self.half_precision else torch.float32)
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.tokenizer.pad_token = self.tokenizer.eos_token
+        torch.set_num_threads(self.num_threads)
 
 
 def preprocess_llama_chat(dialog):

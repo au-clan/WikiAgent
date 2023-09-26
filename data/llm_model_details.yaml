@@ -1,0 +1,6 @@
+llama-2-7b-chat-hf: # copied from non -hf version, might be wrong
+  max_tokens: 4096
+  prompt_cost: 0
+  completion_cost: 0
+  rpm: 0
+  tpm: 0
