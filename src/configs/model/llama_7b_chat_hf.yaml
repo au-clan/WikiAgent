@@ -1,9 +1,8 @@
 _target_: models.huggingface_model.HuggingFaceModel
 model_provider: huggingface
 model_name: meta-llama/Llama-2-7b-chat-hf
-# temperature: 0.5
+
+temperature: 0
 half_precision: False
-num_threads: 20
-# top_p: 0.95
-# repetition_penalty: 1.15
-# device: 'cpu' # or cuda
+num_threads: 16
+device: 'cpu' # or cuda
