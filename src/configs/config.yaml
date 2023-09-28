@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - experiments: defaults_inference
+  - experiments: navigate_link_only_entire_path
   - model: llama_2_7b_chat_hf
   - hydra: inference
 

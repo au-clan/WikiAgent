@@ -28,6 +28,8 @@ class HuggingFaceModel(ChatModel):
     tokenizer: AutoTokenizer = None  # The tokenizer to be used
     model: AutoModelForCausalLM = None  # The model to be used
     half_precision: bool = True
+    top_p: float = 0.95 # top-p sampling parameter
+    do_sample: bool = True # whether to sample or not
     num_threads: int = 16 # number of CPU cores to use
 
     def __attrs_post_init__(self):
@@ -63,7 +65,8 @@ class HuggingFaceModel(ChatModel):
         outputs = self.model.generate(data,
                                       max_new_tokens=self.context_max_tokens,
                                       pad_token_id=self.tokenizer.eos_token_id,
-                                      do_sample=True, top_p=0.8)[:, data.shape[1]:]
+                                      temperature=self.temperature,
+                                      do_sample=self.do_sample, top_p=self.top_p,)[:, data.shape[1]:]
 
         output = self._postprocess(outputs)
         return output

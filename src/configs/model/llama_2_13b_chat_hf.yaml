@@ -5,4 +5,5 @@ model_name: meta-llama/Llama-2-13b-chat-hf
 temperature: 0
 half_precision: False
 num_threads: 16
+top_p: 0.95
 device: 'cpu' # or cuda

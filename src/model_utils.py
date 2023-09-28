@@ -134,14 +134,14 @@ class ChatModel:
             raise NotImplementedError("Need to implement for more than one generation.")
 
 
-    def __call__(self, messages: List[BaseMessage]):
+    def __call__(self, messages: List[BaseMessage], keep_history=False):
         """
         Generate tokens.
+        If keep_history is True, then the model will keep track of the message history throughout all calls.
         """
         if self.debug_mode:
             # time.sleep(0.2)  # small wait to see sensible msg timestamps
             return f"<{dt.strftime(dt.now(), '%H%M%S_%f')}> lorem ipsum dolor sit amet"
-
         self.prompt_tokens, self.completion_tokens = -1, -1
         response = self._generate(messages)
 
@@ -149,9 +149,11 @@ class ChatModel:
         self._update_token_counts(prompt_messages=messages, completion=response.content)
 
         # update message history
-        messages.append(response)
-        self.messages = messages
-
+        if not keep_history:
+            self.messages = messages.copy()
+        else:
+            self.messages += messages
+        self.messages.append(response)
         return response.content
 
     def _generate(self, data) -> AIMessage:

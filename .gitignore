@@ -2,3 +2,4 @@ outputs/
 logs/
 *.pyc
 data/wikispeedia/
+nohup.out

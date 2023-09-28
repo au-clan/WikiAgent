@@ -1,0 +1,68 @@
+prompts: # check https://yaml-multiline.info/ for info on multiline strings
+
+  system_prompt: |
+    Assistant is a expert JSON builder designed to assist the user in playing play the game of Wikispeedia. Assistant is familiar with the Wikipedia link structure and can help the user find the shortest path between two Wikipedia articles.
+    In Wikispeedia, given two Wikipedia articles, a source and a target, your goal is to reach the target article starting from the source article in as few clicks as possible. For the articles given this is always possible.
+
+    All of Assistant's communication is performed using this JSON format.
+
+    Here are some previous conversations between the Assistant and User:
+    {fewshot_demonstrations}
+    Here is the latest conversation between Assistant and User:
+
+  fewshot_demonstrations_prompt: |
+    User: Find the path between "{src}" and "{tgt}".
+    Assistant: 
+    {{
+    "Path": "{output}"
+    }}
+
+  user_prompt: |-
+    User: Find the path between "{src}" and "{tgt}".
+
+  # system_prompt_1: |-
+  #   You are a knowledge discovery expert familiar with the Wikipedia link structure and your objective is to play the game of Wikispeedia: https://dlab.epfl.ch/wikispeedia/play/.
+  # user_prompt_1: |
+  #   ##Goal
+  #   Given two Wikipedia articles, a source and a target, your goal is to reach the target article starting from the source article in as few clicks as possible. For the articles you are given this is always possible.
+
+  #   ##Constraint
+  #   You should exclusively follow the links present in the articles that you encounter along the way.
+
+  #   ##Strategy
+  #   Use your knowledge of the "expected" Wikipedia link structure and relatedness between articles to identify a path from the source article to the target article.
+
+  #   ##Input
+  #   You will be given input in the JSON format as described below
+  #   Input format:
+  #   {
+  #       "Source": "<source>", 
+  #       "Target": "<target>"
+  #   }
+
+  #   ##Output
+  #   You should only respond in the JSON format as described below
+  #   Output format:
+  #   {
+  #       "Path": "<output path with articles separated by ';'>"
+  #   }
+  #   Here is an example:
+  #   Input: {
+  #     "Source": "Ottoman_Empire", 
+  #     "Target": "Rosetta_Stone"
+  #   }
+  #   Output: {
+  #     "Path": "Ottoman_Empire;Egypt;Ancient_Egypt;Rosetta_Stone"
+  #   }
+  #   Ensure the response can be parsed by Python json.loads
+
+
+  # demonstration_user_prompt_1: |-
+  #   {{
+  #     "Source": "{src}", 
+  #     "Target": "{tgt}"
+  #   }}
+  # demonstration_assistant_prompt_1: |-
+  #   {{
+  #     "Path": "{output}"
+  #   }}
