@@ -42,21 +42,28 @@ def effective_path(path_str: str) -> str:
     return ";".join(effective_path)
 
         
-def check_path(src, tgt, generated_path, links_file="data/wikispeedia/wikispeedia_paths-and-graph/links.tsv"):
+def check_path(src, tgt, generated_path, links_file="data/wikispeedia/wikispeedia_paths-and-graph/links.tsv", check_clicks=True):
     """
     Checks if the generated path is valid.
+    Path is valid if:
+    - The source is the same as the source given
+    - Each click is valid
+    - The target is the same as the target given
+    
+    Path format: link1;link2;link3;...
     """
     links = load_links(links_file)
+    gen_path_eff = effective_path(generated_path)
     gen_path_list = []
-    for node in generated_path.split(";"):
+    for node in gen_path_eff.split(";"):
         gen_path_list.append(wikify_article_name(node))
-    gen_path_list = effective_path(gen_path_list)
     if gen_path_list[0] != src:
         return gen_path_list, 0, f"Generated source {gen_path_list[0]} not in the list of Wikispeedia articles"
-    for i in range(len(gen_path_list)-1):
-        cur = gen_path_list[i]; nxt = gen_path_list[i+1]
-        if nxt not in links[cur]:
-            return gen_path_list, 0, f"Generated click from {cur} to {nxt} is incorrect. Correct path prefix {';'.join(gen_path_list[:i+1])}"
+    if check_clicks:
+        for i in range(len(gen_path_list)-1):
+            cur = gen_path_list[i]; nxt = gen_path_list[i+1]
+            if nxt not in links[cur]:
+                return gen_path_list, 0, f"Generated click from {cur} to {nxt} is incorrect. Correct path prefix {';'.join(gen_path_list[:i+1])}"
     if gen_path_list[-1] == tgt:
         return gen_path_list, 1, "Sucess"
     else:
