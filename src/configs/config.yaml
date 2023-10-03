@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - experiments: navigate_link_only_entire_path
+  - experiments: agent_test
   - model: llama_2_7b_chat_hf
   - hydra: inference
 
@@ -9,5 +9,8 @@ work_dir: ${hydra:runtime.cwd}
 data_dir: ${work_dir}/data
 # path to output directory, created dynamically by hydra
 output_dir: ${hydra:runtime.output_dir}
+# other paths
+agent_prompts_dir: ${data_dir}/agent_prompts
+
 # determines the log directory's parent folder
 experiment_name: inference

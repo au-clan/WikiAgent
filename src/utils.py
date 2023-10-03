@@ -1,4 +1,5 @@
 import json
+from urllib.parse import unquote
 
 def get_api_key(fname='secrets.json', provider='openai', key='dlab_key'):
     try:
@@ -44,3 +45,24 @@ def printc(x, c='r'):
     }
     reset_color = '\033[0m'
     print(f'{m2.get(m1.get(c, c), c)}{x}{reset_color}')
+
+def load_links(file="data/wikispeedia/wikispeedia_paths-and-graph/links.tsv") -> dict:
+    """
+    Loads the links file into a dictionary.
+    """
+    flinks = open(file)
+    links = {}
+    for i, line in enumerate(flinks):
+        line = line.strip()
+        if '#' in line or line == '':
+            continue
+        line = line.split('\t')
+        src = unquote(line[0]); tgt = unquote(line[1])
+        if src not in links:
+            links[src] = [tgt]
+        else:
+            links[src].append(tgt)
+    return links
+
+def wikify_article_name(name):
+    return "_".join(name.strip().split(" "))

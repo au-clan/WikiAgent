@@ -1,27 +1,9 @@
 import sys 
-from urllib.parse import unquote
 sys.path.append("src/")
 from prompt_utils import wikify_article_name
 import pandas as pd
 from pprint import pprint
 
-def load_links(file="data/wikispeedia/wikispeedia_paths-and-graph/links.tsv") -> dict:
-    """
-    Loads the links file into a dictionary.
-    """
-    flinks = open(file)
-    links = {}
-    for i, line in enumerate(flinks):
-        line = line.strip()
-        if '#' in line or line == '':
-            continue
-        line = line.split('\t')
-        src = unquote(line[0]); tgt = unquote(line[1])
-        if src not in links:
-            links[src] = [tgt]
-        else:
-            links[src].append(tgt)
-    return links
 
 def effective_path(path_str: str) -> str:
     """

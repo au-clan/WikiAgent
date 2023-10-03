@@ -1,0 +1,3 @@
+agent:
+  _target_: agents.Agent
+  prompt_template: ${agent_prompts_dir}/base_agent.yaml

@@ -1,0 +1,18 @@
+prompt: 
+  - role: system
+    content: |
+      {assistant_description}
+
+      {fewshot_demonstrations}
+  - role: user
+    content: |
+      User: {user_prompt}
+
+
+demonstration_template: |
+  User: {user_prompt}
+  Assistant:
+  {{
+    {output_fields}
+  }}
+  

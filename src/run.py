@@ -35,5 +35,11 @@ def main(cfg: DictConfig):
                                                                     'temperature': model.temperature, 'top_p': model.top_p}, index=[0])], ignore_index=True)
         model_output_df.to_csv(os.path.join(cfg.output_dir, f"{model.model_name.split('/')[-1]}_fewshot_{fewshot}_outputs.tsv"), index=False, sep='\t')
 
+###
+@hydra.main(version_base = None, config_path="configs", config_name="config")
+def test(cfg: DictConfig):
+    agent = instantiate(cfg.experiments.agent)
+    print(agent.prompt_template)
+
 if __name__ == "__main__":
-    main()
+    test()
