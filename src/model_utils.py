@@ -166,8 +166,8 @@ class ChatModel:
         pass
 
     def _update_token_counts(self, prompt_messages, completion):
-        prompt_tokens = self.estimate_tokens(messages=prompt_messages) if self.prompt_tokens < 0 else self.prompt_tokens
-        completion_tokens = self.estimate_tokens(completion) if self.completion_tokens < 0 else self.completion_tokens
+        self.prompt_tokens = self.estimate_tokens(messages=prompt_messages) if self.prompt_tokens < 0 else self.prompt_tokens
+        self.completion_tokens = self.estimate_tokens(completion) if self.completion_tokens < 0 else self.completion_tokens
 
         # keep track of budget and costs
         pc, cc, _ = self.estimate_cost(input_tokens=prompt_tokens, output_tokens=completion_tokens)
@@ -190,8 +190,9 @@ class ChatModel:
         return input_cost, output_cost, total_cost
 
     def estimate_tokens(self, messages: Union[List[BaseMessage], str]):
-        if "llama" in self.model_name:
-            return 0
+        if "hf" in self.model_name:
+            enc = self.tokenizer
+            print("using tokenizer")###
         try:
             enc = tiktoken.encoding_for_model(self.model_name)
         except KeyError as e:
@@ -213,7 +214,8 @@ class ChatModel:
             str_to_estimate = ''
 
         tokens = len(enc.encode(str_to_estimate)) + msg_token_penalty
-
+        ###
+        print("used tokens:", tokens)
         return tokens
 
     def check_context_len(self, context: List[BaseMessage], max_gen_tokens: int) -> bool:

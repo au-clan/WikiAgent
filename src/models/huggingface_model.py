@@ -1,5 +1,6 @@
 # Adapted from github.com/epfl-dlab/GPTeam
 
+from typing import List, Union
 from attr import define
 import os 
 import sys 
@@ -7,7 +8,7 @@ sys.path.append("src/")
 # fix for importing pytorch: https://github.com/pytorch/pytorch/issues/78490
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from model_utils import ChatModel, AIMessage, SystemMessage, HumanMessage
+from model_utils import BaseMessage, ChatModel, AIMessage, SystemMessage, HumanMessage
 import torch
 
 B_INST, E_INST = "[INST]", "[/INST]"
@@ -31,6 +32,7 @@ class HuggingFaceModel(ChatModel):
     top_p: float = 0.95 # top-p sampling parameter
     do_sample: bool = True # whether to sample or not
     num_threads: int = 16 # number of CPU cores to use
+    raw_prompt: str = None # the raw prompt
 
     def __attrs_post_init__(self):
         """
@@ -46,6 +48,7 @@ class HuggingFaceModel(ChatModel):
         if "chat" in self.model_name:
             msges = [k.prepare_for_generation() for k in data]
             concat_msges = preprocess_llama_chat(msges)
+            self.raw_prompt = concat_msges
             return self.tokenize(concat_msges)
 
         msges = [k.prepare_for_completion() for k in messages]
@@ -54,7 +57,7 @@ class HuggingFaceModel(ChatModel):
             concat_msges += msg + "\n"
 
         self.prompt_tokens = self.estimate_tokens(concat_msges)
-
+        self.raw_prompt = concat_msges
         return self.tokenize(concat_msges)
 
     def _generate(self, data):
@@ -81,6 +84,7 @@ class HuggingFaceModel(ChatModel):
             decoded = decoded.split(E_INST)[-1]
 
         output = AIMessage(decoded.strip())
+
         return output
 
     def tokenize(self, message: str):
@@ -107,7 +111,7 @@ class HuggingFaceModel(ChatModel):
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.tokenizer.pad_token = self.tokenizer.eos_token
         torch.set_num_threads(self.num_threads)
-
+    
 
 def preprocess_llama_chat(dialog):
     """
