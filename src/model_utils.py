@@ -170,7 +170,7 @@ class ChatModel:
         self.completion_tokens = self.estimate_tokens(completion) if self.completion_tokens < 0 else self.completion_tokens
 
         # keep track of budget and costs
-        pc, cc, _ = self.estimate_cost(input_tokens=prompt_tokens, output_tokens=completion_tokens)
+        pc, cc, _ = self.estimate_cost(input_tokens=self.prompt_tokens, output_tokens=self.completion_tokens)
         self.session_prompt_costs += pc
         self.session_completion_costs += cc
         self.budget -= (pc + cc)
