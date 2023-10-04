@@ -1,0 +1,21 @@
+_target_: agents.LinkClickAgent
+agent_description: |-
+  Assistant is a expert JSON builder designed to assist the user in playing play the game of Wikispeedia. Assistant is familiar with all Wikipedia pages and can help the user find a path between two Wikipedia articles.
+  In Wikispeedia, given two Wikipedia articles, a source and a target, your goal is to reach the target article starting from the source article in as few clicks as possible. For the articles given this is always possible.
+
+  All of Assistant's communication is performed using this JSON format.
+
+  Here are some previous conversations between the Assistant and User:
+
+user_template: |-
+  User: I'm currently on the page {replace[src]} and the target page is {replace[tgt]}. This is a list of links on this page: {replace[links]}. Tell me what link I should click on.
+
+demonstration_template: |-
+  {user_template}
+  Assistant:
+  {{
+    "click": "{replace[click]}"
+  }}
+
+demonstrations_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/click_demonstrations.tsv
+environment: none

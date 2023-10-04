@@ -1,0 +1,23 @@
+_target_: agents.Agent
+prompt: 
+    system: |-
+      {agent_description}
+
+      {fewshot_demonstrations}
+      Here is the latest conversation between the Assistant and User:
+    user: |
+      User: {user_template}
+
+  
+# agent_description: |-
+#   You are a nice assistant.
+
+# demonstration_template: |
+#   User: {user_template}
+#   Assistant:
+#   {{
+#     Path:
+#   }}
+
+# user_template: |-
+#   I want to go from {replace[src]} to {replace[tgt]}.
