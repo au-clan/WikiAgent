@@ -1,7 +1,8 @@
 defaults:
   - _self_
-  - experiments: agent_test
+  - experiments: defaults_inference
   - model: llama_2_7b_chat_hf
+  - agent: link_click_agent
   - hydra: inference
 
 # Directories

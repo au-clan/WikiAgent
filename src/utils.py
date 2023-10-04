@@ -1,5 +1,13 @@
 import json
 from urllib.parse import unquote
+import pandas as pd
+
+def load_tsv_to_dict_list(file: str) -> list[dict]:
+    """
+    Loads a .tsv file into a list of dictionaries.
+    """
+    df = pd.read_csv(file, sep='\t')
+    return df.to_dict('records')
 
 def get_api_key(fname='secrets.json', provider='openai', key='dlab_key'):
     try:

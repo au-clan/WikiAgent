@@ -18,10 +18,6 @@ class Environment:
     content_history = field(factory=list)
     links = field(factory=list)
     
-    
-    def __str__(self):
-        return self.content
-    
     def to_dict(self):
         # Create a dictionary manually
         attributes = {}
