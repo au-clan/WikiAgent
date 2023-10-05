@@ -10,7 +10,8 @@ import asyncio
 from model_utils import SystemMessage, HumanMessage, AIMessage, BaseMessage
 from environments import Environment
 from batch_handler import BatchHandler
-from utils import load_tsv_to_dict_list
+from utils import load_tsv_to_dict_list, printc
+from time import time
 
 @define
 class Agent:
@@ -55,7 +56,13 @@ class Agent:
 
     def set_environment(self, environment: Environment):
         self.environment = environment
-            
+    
+    def set_handler(self, handler: BatchHandler):
+        self.handler = handler
+    
+    def set_agent_id(self, agent_id: int):
+        self.agent_id = agent_id
+        
     def get_system_message(self):
         system_message_content = self.prompt_template['system'].format(
             agent_description=self.agent_description,
@@ -105,9 +112,12 @@ class Agent:
 
     async def act(self):
         """ Main logic for the agent."""
+        printc(f"Agent {self.agent_id} started.")
+        start = time()
         prompt = self.build_prompt()
         response = await self.handler.send_prompt(self.agent_id, prompt)
         processed_response = self.process_response(response)
+        printc(f"Agent {self.agent_id} received response in {time() - start} seconds. Response: {processed_response}")
         return processed_response
 
 

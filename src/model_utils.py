@@ -7,7 +7,7 @@ import attr
 from attr import define, field
 import sys
 sys.path.append("src/")
-from utils import get_api_key
+from utils import get_api_key, printc
 
 @define
 class BaseMessage:
@@ -143,6 +143,7 @@ class ChatModel:
             # time.sleep(0.2)  # small wait to see sensible msg timestamps
             return f"<{dt.strftime(dt.now(), '%H%M%S_%f')}> lorem ipsum dolor sit amet"
         self.prompt_tokens, self.completion_tokens = -1, -1
+        printc(f"received {messages}", color="green")
         response = self._generate(messages)
 
         # update internal books:

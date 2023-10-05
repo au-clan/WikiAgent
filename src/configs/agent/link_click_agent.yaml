@@ -18,4 +18,3 @@ demonstration_template: |-
   }}
 
 demonstrations_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/click_demonstrations.tsv
-environment: none
