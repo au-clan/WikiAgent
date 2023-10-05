@@ -6,9 +6,10 @@ import attr
 from attr import define, field
 import sys
 import yaml
-sys.path.append("src/")
+import asyncio
 from model_utils import SystemMessage, HumanMessage, AIMessage, BaseMessage
 from environments import Environment
+from batch_handler import BatchHandler
 from utils import load_tsv_to_dict_list
 
 @define
@@ -17,6 +18,8 @@ class Agent:
     Virtual agent class. Defines the main interface for the agent.
     """
     environment: Environment = field(default=None)
+    handler: BatchHandler = field(default=None)
+    agent_id: int = field(default=None)
 
     # File with templates for the prompt and demonstration structure
     base_template_file: str = field(default="src/configs/agent/base_agent.yaml")
@@ -37,20 +40,6 @@ class Agent:
     def __attrs_post_init__(self):
         self.prompt_template = self._load_from_template_file(self.base_template_file, 'prompt')
 
-    def __getitem__(self, key):
-        return self.__dict__[key]
-    
-    def __setitem__(self, key, value):
-        self.__dict__[key] = value
-
-    def _load_from_template_file(self, file: str,  field: str):
-        with open(file, "r") as f:
-            field = yaml.safe_load(f)[field]
-        return field
-
-    def set_environment(self, environment: Environment):
-        self.environment = environment
-
     def to_dict(self):
         # Create a dictionary manually
         attributes = {}
@@ -58,6 +47,14 @@ class Agent:
             if not callable(getattr(self, attr)) and not attr.startswith("__"):
                 attributes[attr] = getattr(self, attr)
         return attributes
+    
+    def _load_from_template_file(self, file: str,  field: str):
+        with open(file, "r") as f:
+            field = yaml.safe_load(f)[field]
+        return field
+
+    def set_environment(self, environment: Environment):
+        self.environment = environment
             
     def get_system_message(self):
         system_message_content = self.prompt_template['system'].format(
@@ -101,6 +98,18 @@ class Agent:
 
         prompt = [system_message, user_message]
         return prompt
+        
+    def process_response(self, response: BaseMessage):
+        """ Decide what to do based on the model output."""
+        raise NotImplementedError("Subclasses must implement the process_response method.")
+
+    async def act(self):
+        """ Main logic for the agent."""
+        prompt = self.build_prompt()
+        response = await self.handler.send_prompt(self.agent_id, prompt)
+        processed_response = self.process_response(response)
+        return processed_response
+
 
 @define
 class WikiNavAgent(Agent):
@@ -148,4 +157,5 @@ class LinkClickAgent(WikiNavAgent):
             return False
         
 
-
+    def process_response(self, response: BaseMessage):
+        return response.content

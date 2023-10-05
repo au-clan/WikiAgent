@@ -26,12 +26,6 @@ class Environment:
                 attributes[attr] = getattr(self, attr)
         return attributes
     
-    def __getitem__(self, key):
-        return self.__dict__[key]
-    
-    def __setitem__(self, key, value):
-        self.__dict__[key] = value
-    
     def _set_links(self):
         """
         This depends on the type of environment

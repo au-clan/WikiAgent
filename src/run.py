@@ -3,14 +3,18 @@ from omegaconf import DictConfig
 from hydra.utils import instantiate
 import os
 import pandas as pd
+from pprint import pprint
+from time import time
+import asyncio
+
 from model_utils import SystemMessage, HumanMessage, AIMessage, BaseMessage
 from prompt_utils import get_navigate_entire_path_prompt
 from logger import get_logger
 from utils import printc, load_tsv_to_dict_list
-from pprint import pprint
-from time import time
 from navigate_links_only import get_path_demonstrations, get_paths_real_sample
 from environments import LinkWikiEnviroment
+from agents import LinkClickAgent
+from batch_handler import BatchHandler
 
 os.environ['HYDRA_FULL_ERROR'] = '1'
 
@@ -43,22 +47,20 @@ def main(cfg: DictConfig):
 
 ###
 @hydra.main(version_base = None, config_path="configs", config_name="config")
-def test(cfg: DictConfig):
-    environment_ = LinkWikiEnviroment(current_page="Bob Dylan")
-    print(environment_)
-    agent = instantiate(cfg.agent)
-    agent.set_environment(environment_)
-    agent.set_target_page("Portugal")
+async def test(cfg: DictConfig):
+    env = LinkWikiEnviroment("Andy Warhol")
+    model = instantiate(cfg.model)
 
-    prompt = agent.build_prompt()
-    for message in prompt:
-        printc(message)
-    agent.click("North America")
+    handler = BatchHandler(model=model)
+    agents = [LinkClickAgent(handler=handler, agent_id=i, environment=env) for i in range(4)]
+    
+    agent_tasks = [asyncio.create_task(agent.act()) for agent in agents]
+    batch_processor = asyncio.create_task(handler.process_batch())
 
-    print("clicked")
-    prompt = agent.build_prompt()
-    for message in prompt:
-        printc(message)
+    await asyncio.gather(*agent_tasks)
+    batch_processor.cancel()
+
 
 if __name__ == "__main__":
-    test()
+    #main()
+    asyncio.run(test())

@@ -1,13 +1,18 @@
 # File to play around with the code
 
 from environments import *
+from agents import *
+from model_utils import *
+from batch_handler import *
 from pprint import pprint
 
-def main():
+async def main():
     env = LinkWikiEnviroment("Andy Warhol")
-    pprint(env.to_dict())
-    env.change_page("Bob Dylan")
-    pprint(env.to_dict())
+    handler = BatchHandler()
+    agents = [LinkClickAgent(handler=handler, agent_id=i, environment=env) for i in range(4)]
+    
+    agent_tasks = [asyncio.create_task(agent.act()) for agent in agents]
+
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
