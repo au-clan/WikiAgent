@@ -34,7 +34,7 @@ class BatchHandler:
             events = []
             for _ in range(self.batch_size):
                 if self.queue.empty():
-                    printc("Queue is empty.", color="yellow")
+                    printc("Queue is empty.", c="yellow")
                     break
                 agent_id, prompt, event = await self.queue.get()
                 printc(f"Processing prompt for agent {agent_id}.", c="yellow")
