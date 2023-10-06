@@ -10,8 +10,9 @@ import asyncio
 from model_utils import SystemMessage, HumanMessage, AIMessage, BaseMessage
 from environments import Environment
 from batch_handler import BatchHandler
-from utils import load_tsv_to_dict_list, printc
+from utils import load_tsv_to_dict_list, printc, extract_json_from_response, get_field_from_json
 from time import time
+import json
 
 @define
 class Agent:
@@ -37,6 +38,9 @@ class Agent:
 
     fewshot: int = field(default=5)
     demonstrations_file: str = field(default=None)
+
+    # data about a run
+    num_actions_taken: int = field(default=0)
 
     def __attrs_post_init__(self):
         self.prompt_template = self._load_from_template_file(self.base_template_file, 'prompt')
@@ -106,19 +110,44 @@ class Agent:
         prompt = [system_message, user_message]
         return prompt
         
-    def process_response(self, response: BaseMessage):
-        """ Decide what to do based on the model output."""
-        raise NotImplementedError("Subclasses must implement the process_response method.")
+    def extract_actions(self, response: BaseMessage) -> dict:
+        """ Processes the model output and returns a dict with the agent's choices."""
+        extracted_json = extract_json_from_response(response.content)
+        if extracted_json:
+            actions = json.loads(extracted_json)
+        else:
+            actions = {}
+        return actions
+    
+    def apply_actions(self, actions: dict):
+        """ Applies the actions to the environment."""
+        raise NotImplementedError("Subclasses must implement the apply_actions method.")
 
     async def act(self):
-        """ Main logic for the agent."""
-        printc(f"Agent {self.agent_id} started.")
+        """ One turn of the agent."""
+        printc(f"Agent {self.agent_id} on page {self.environment.current_page}.", c="r")
         start = time()
         prompt = self.build_prompt()
         response = await self.handler.send_prompt(self.agent_id, prompt)
-        processed_response = self.process_response(response)
-        printc(f"Agent {self.agent_id} received response in {time() - start} seconds. Response: {processed_response}")
-        return processed_response
+        printc(f"Agent {self.agent_id} received response in {time() - start} seconds. Response: {response}")
+        actions = self.extract_actions(response)
+        self.apply_actions(actions)
+        self.num_actions_taken += 1
+    
+    def is_finished(self):
+        """ Finishing condition is agent type dependent."""
+        raise NotImplementedError("Subclasses must implement the is_finished method.")
+    
+    async def run(self):
+        """ Run the agent until game is over or error."""
+        while not self.is_finished():
+            print("enviroment:", self.environment)
+            try:
+                await self.act()
+            except Exception as e:
+                printc(f"Error in agent {self.agent_id}: {e}", c="r")
+                break
+        
 
 
 @define
@@ -127,9 +156,17 @@ class WikiNavAgent(Agent):
     Virtual class for agents that navigate Wikipedia with a target page.
     """
     target_page: str = field(default=None)
+    max_steps: int = field(default=3)
 
     def set_target_page(self, target_page: str):
         self.target_page = target_page
+    
+    def is_finished(self, force=False):
+        if force:
+            return True
+        else:
+            return self.environment.current_page == self.target_page or self.num_actions_taken >= self.max_steps
+        
 
 @define
 class LinkClickAgent(WikiNavAgent):
@@ -163,9 +200,13 @@ class LinkClickAgent(WikiNavAgent):
             self.environment.change_page(link)
             return True
         except AssertionError as e:
-            print(e)
-            return False
+            raise e
         
 
-    def process_response(self, response: BaseMessage):
-        return response.content
+    def apply_actions(self, actions: dict):
+        """
+        Apply actions from the model.
+        """
+        assert 'click' in actions, "Invalid actions for LinkClickAgent."
+        self.click(actions['click'])
+
