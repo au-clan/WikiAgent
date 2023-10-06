@@ -1,6 +1,7 @@
 import json
 from urllib.parse import unquote
 import pandas as pd
+import regex
 
 def load_tsv_to_dict_list(file: str) -> list[dict]:
     """
@@ -74,3 +75,23 @@ def load_links(file="data/wikispeedia/wikispeedia_paths-and-graph/links.tsv") ->
 
 def wikify_article_name(name):
     return "_".join(name.strip().split(" "))
+
+def extract_json_from_response(response):
+    pattern = r"""\{(?:[^{}]|(?R))*\}"""
+    matches = regex.finditer(pattern, response, regex.VERBOSE)
+
+    jsons = [match.group() for matchNum, match in enumerate(matches, start=1)]
+    if len(jsons) > 0:
+        return jsons[0]
+    else:
+        return None
+
+def get_field_from_json(json_str, field='Path'):
+    if len(json_str)==0:
+        return ""
+    try:
+        json_obj = json.loads(json_str)
+        path = json_obj[field]
+        return path
+    except:
+        return ""   
