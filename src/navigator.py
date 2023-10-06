@@ -2,8 +2,8 @@ import tiktoken
 from bs4 import BeautifulSoup
 
 # Custom 
-from src.html2text import clean
-from src.utils import page2href, get_links
+from html2text import clean
+from utils import page2href, get_links
 
 
 class NavigatorHTML:
@@ -29,9 +29,6 @@ class NavigatorHTML:
            print("Can't decode SOS Children’s village documents")
         else:
             self.text = clean(body,0, current_page)
-            # Saving in a constant place for debugging purposes
-            with open("output.text", "w") as file:
-                file.write(self.text)
             self.encodings = self.encoder.encode(self.text)
             self.window = {"start":0, "end":self.token_window} 
             self.update_window()

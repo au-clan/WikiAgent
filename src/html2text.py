@@ -2,7 +2,7 @@
 from bs4 import Comment
 import re
 
-from src.utils import get_super, get_sub, href2page
+from utils import get_super, get_sub, href2page
 
 def clean_row(row):
     """
@@ -227,7 +227,7 @@ def clean(part, i, document, removed_parts = ["script", "map"], current_list_ord
 
 def create_body_parts(body):
     """
-    To delete (probably)
+    Only used during testing
     """
     parts = []
     temp = body.contents
