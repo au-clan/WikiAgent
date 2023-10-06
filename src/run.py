@@ -16,7 +16,7 @@ from environments import LinkWikiEnviroment
 from agents import LinkClickAgent
 from batch_handler import BatchHandler
 
-#os.environ['HYDRA_FULL_ERROR'] = '1'
+os.environ['HYDRA_FULL_ERROR'] = '1'
 
 #log = get_logger()
 
@@ -37,37 +37,13 @@ def main(cfg: DictConfig):
                                                    fewshot=fewshot, n=1)
         response = model(messages)
 
-        model_output_df = pd.concat([model_output_df, pd.DataFrame({'src': path["src"], 'tgt': path["tgt"], 'human_path': path["output"],
-                                                                    'model_output': response, 'history': model.get_history_str(),
-                                                                    'temperature': model.temperature, 'top_p': model.top_p}, index=[0])], ignore_index=True)
+        # model_output_df = pd.concat([model_output_df, pd.DataFrame({'src': path["src"], 'tgt': path["tgt"], 'human_path': path["output"],
+        #                                                             'model_output': response, 'history': model.get_history_str(),
+        #                                                             'temperature': model.temperature, 'top_p': model.top_p}, index=[0])], ignore_index=True)
         print(f"Time taken: {time() - start} seconds")
         print(response)
         break
         #model_output_df.to_csv(os.path.join(cfg.output_dir, f"{model.model_name.split('/')[-1]}_fewshot_{fewshot}_outputs.tsv"), index=False, sep='\t')
 
-###
-async def test(cfg: DictConfig):
-    env = LinkWikiEnviroment("Andy Warhol")
-    model = instantiate(cfg.model)
-
-    handler = BatchHandler(model=model)
-    agents = [instantiate(cfg.agent) for i in range(4)]
-    for i, agent in enumerate(agents):
-        agent.set_environment(env)
-        agent.set_handler(handler)
-        agent.set_target_page("Portugal")
-        agent.set_agent_id(i)
-
-    agent_tasks = [agent.act() for agent in agents]
-    batch_processor = asyncio.create_task(handler.process_batch())
-
-    await asyncio.gather(*agent_tasks)
-    batch_processor.cancel()
-
-@hydra.main(version_base = None, config_path="configs", config_name="config")
-def hydra_test(cfg: DictConfig):
-    """ Do this bc the hydra decorator doesn't work with async functions."""
-    asyncio.run(test(cfg))
-
 if __name__ == "__main__":
-    hydra_test()
+    main()
