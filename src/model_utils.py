@@ -83,9 +83,7 @@ class ChatModel:
     Basic LLM API model wrapper class
 
     # TODO: (1) error handling
-    #       (2) expand support
-    #       (3) move to aiohttp REST API calls
-    #       (4) add streaming mode
+    #       (2) fix token counts and history for batched inputs
     """
     model_provider: str = field(default='openai')
     model_name: str = field(default='gpt-3.5-turbo')
@@ -107,7 +105,7 @@ class ChatModel:
     response: str = field(default="")
     prompt_tokens: int = field(default=0)
     completion_tokens: int = field(default=0)
-    device = field(default='cpu')
+    device: str = field(default='cpu')
 
     # keep track of costs
     budget: float = field(default=10.)
@@ -134,28 +132,29 @@ class ChatModel:
             raise NotImplementedError("Need to implement for more than one generation.")
 
 
-    def __call__(self, messages: List[BaseMessage], keep_history=False):
+    def __call__(self, messages: Union[List[BaseMessage], List[List[BaseMessage]]], keep_history=False):
         """
         Generate tokens.
         If keep_history is True, then the model will keep track of the message history throughout all calls.
         """
+        printc(f"ChatModel received messages: {messages}", c="g")
         if self.debug_mode:
             # time.sleep(0.2)  # small wait to see sensible msg timestamps
             return f"<{dt.strftime(dt.now(), '%H%M%S_%f')}> lorem ipsum dolor sit amet"
         self.prompt_tokens, self.completion_tokens = -1, -1
-        printc(f"received {messages}", color="green")
         response = self._generate(messages)
 
-        # update internal books:
-        self._update_token_counts(prompt_messages=messages, completion=response.content)
+        # TODO: Make the code below work for batches
+        # # update internal books:
+        # self._update_token_counts(prompt_messages=messages, completion=response.content)
 
-        # update message history
-        if not keep_history:
-            self.messages = messages.copy()
-        else:
-            self.messages += messages
-        self.messages.append(response)
-        return response.content
+        # # update message history
+        # if not keep_history:
+        #     self.messages = messages.copy()
+        # else:
+        #     self.messages += messages
+        # self.messages.append(response)
+        return response
 
     def _generate(self, data) -> AIMessage:
         pass
@@ -193,7 +192,6 @@ class ChatModel:
     def estimate_tokens(self, messages: Union[List[BaseMessage], str]):
         if "hf" in self.model_name:
             enc = self.tokenizer
-            print("using tokenizer")###
         try:
             enc = tiktoken.encoding_for_model(self.model_name)
         except KeyError as e:

@@ -1,14 +1,15 @@
 # Adapted from github.com/epfl-dlab/GPTeam
 
-from typing import List, Union
+from typing import List, Union, Any
 from attr import define
 import os 
 import sys 
 sys.path.append("src/")
 # fix for importing pytorch: https://github.com/pytorch/pytorch/issues/78490
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import pipeline
 from model_utils import BaseMessage, ChatModel, AIMessage, SystemMessage, HumanMessage
+from utils import printc
 import torch
 
 B_INST, E_INST = "[INST]", "[/INST]"
@@ -26,8 +27,9 @@ class HuggingFaceModel(ChatModel):
     """
     model_provider: str = 'huggingface'  # The provider of the model
     model_name: str = 'meta-llama/Llama-2-7b-chat-hf'  # The name of the model
-    tokenizer: AutoTokenizer = None  # The tokenizer to be used
-    model: AutoModelForCausalLM = None  # The model to be used
+    generator: pipeline = None  # The generator to be used
+    tokenizer: Any = None  # The tokenizer to be used
+    batch_size: int = 1  # The batch size to be used
     half_precision: bool = True
     top_p: float = 0.95 # top-p sampling parameter
     do_sample: bool = True # whether to sample or not
@@ -41,35 +43,52 @@ class HuggingFaceModel(ChatModel):
         """
         self.init_model()
 
-    def _preprocess(self, data):
+    def _preprocess(self, data: Union[List[BaseMessage], List[List[BaseMessage]]]) -> List[str]:
         """
         This method preprocesses the data based on the model name.
+        Handles single and batched inputs.
         """
+        if isinstance(data[0], BaseMessage):
+            # turn single input into a batch
+            data = [data]
+
         if "chat" in self.model_name:
-            msges = [k.prepare_for_generation() for k in data]
-            concat_msges = preprocess_llama_chat(msges)
+            msges = [[k.prepare_for_generation() for k in data]
+                        for data in data]
+            concat_msges = [preprocess_llama_chat(msg) for msg in msges]
             self.raw_prompt = concat_msges
-            return self.tokenize(concat_msges)
+            # return self.tokenizer(concat_msges)
+            return concat_msges
 
-        msges = [k.prepare_for_completion() for k in messages]
-        concat_msges = ""
-        for msg in msges:
-            concat_msges += msg + "\n"
+        # TODO: fix this for non chat models
+        # msges = [k.prepare_for_completion() for k in messages]
+        # concat_msges = ""
+        # for msg in msges:
+        #     concat_msges += msg + "\n"
 
-        self.prompt_tokens = self.estimate_tokens(concat_msges)
-        self.raw_prompt = concat_msges
-        return self.tokenize(concat_msges)
+        # self.prompt_tokens = self.estimate_tokens(concat_msges)
+        # self.raw_prompt = concat_msges
+        # return self.tokenize(concat_msges)
+        return None
 
     def _generate(self, data):
         """
         This method generates the output using the model.
         """
         data = self._preprocess(data)
-        outputs = self.model.generate(data,
-                                      max_new_tokens=self.context_max_tokens,
-                                      pad_token_id=self.tokenizer.eos_token_id,
-                                      temperature=self.temperature,
-                                      do_sample=self.do_sample, top_p=self.top_p,)[:, data.shape[1]:]
+        # printc(f"data: {data}")
+        # outputs = List[dict{"generated_text": str}], for text generation models
+        outputs = self.generator(data,
+                                 max_new_tokens=self.context_max_tokens,
+                                 pad_token_id=self.tokenizer.eos_token_id,
+                                 temperature=self.temperature,
+                                 do_sample=self.do_sample, top_p=self.top_p,)#[:, data.shape[1]:]
+        # outputs = self.model.generate(data,
+        #                               max_new_tokens=self.context_max_tokens,
+        #                               pad_token_id=self.tokenizer.eos_token_id,
+        #                               temperature=self.temperature,
+        #                               do_sample=self.do_sample, top_p=self.top_p,)[:, data.shape[1]:]
+        # printc(f"model outputs: {outputs}", c="g")
 
         output = self._postprocess(outputs)
         return output
@@ -78,15 +97,14 @@ class HuggingFaceModel(ChatModel):
         """
         This method postprocesses the outputs, decoding them into AIMessages.
         """
-        decoded = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-        # .generate method returns the full string.
+        processed_outputs = []
         if "chat" in self.model_name:
-            decoded = decoded.split(E_INST)[-1]
+            for output in outputs:
+                output = output[0]["generated_text"].split(E_INST)[-1]
+                processed_outputs.append(AIMessage(output.strip()))
 
-        output = AIMessage(decoded.strip())
-
-        return output
-
+        return processed_outputs
+    
     def tokenize(self, message: str):
         """
         This method tokenizes the input message.
@@ -100,18 +118,18 @@ class HuggingFaceModel(ChatModel):
             token_input = token_input.cuda()
         
         return token_input
-
+    
     def init_model(self):
         """ 
         This method initializes the model and tokenizer.
         """
-        self.model = AutoModelForCausalLM.from_pretrained(self.model_name,
-                                                          #device_map="auto",
-                                                          torch_dtype=torch.float16 if self.half_precision else torch.float32)
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        self.tokenizer.pad_token = self.tokenizer.eos_token
+        self.generator = pipeline("text-generation", model=self.model_name,
+                                                tokenizer=self.model_name,
+                                                batch_size=self.batch_size, 
+                                                device=0 if self.device == "cuda" else -1)
+        self.tokenizer = self.generator.tokenizer
+        self.generator.tokenizer.pad_token_id = self.tokenizer.eos_token_id
         torch.set_num_threads(self.num_threads)
-    
 
 def preprocess_llama_chat(dialog):
     """
@@ -134,13 +152,13 @@ def preprocess_llama_chat(dialog):
         dialog_list = [f"<s>{B_INST} {(dialog[0]['content']).strip()} {E_INST}"]
     else:
         # Create a formatted string for each paired prompt and answer in the dialog
-        dialog_list = [f"<s>{B_INST} {(prompt['content']).strip()} {E_INST} {(answer['content']).strip()}</s>"
+        dialog_list = [f"<s>{B_INST} {(prompt['content']).strip()} {E_INST} {(answer['content']).strip()} </s>"
                        for prompt, answer in zip(dialog[::2], dialog[1::2])]
         # Append the last dialog's content separately if the number of dialog items is odd
-        dialog_list += [f"{B_INST} {(dialog[-1]['content']).strip()} {E_INST}"]
+        dialog_list += [f"<s>{B_INST} {(dialog[-1]['content']).strip()} {E_INST}"]
 
     # combine all dialog strings into a single string separated by newlines
-    dialog_text = "\n".join(dialog_list)
+    dialog_text = "".join(dialog_list)
 
     return dialog_text
 
