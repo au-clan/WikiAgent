@@ -128,8 +128,9 @@ class Agent:
         printc(f"Agent {self.agent_id} on page {self.environment.current_page}.", c="r")
         start = time()
         prompt = self.build_prompt()
+        printc(f"Agent {self.agent_id} says:\n\t{prompt[-1].content}", c="r")
         response = await self.handler.send_prompt(self.agent_id, prompt)
-        printc(f"Agent {self.agent_id} received response in {time() - start} seconds. Response: {response}")
+        printc(f"Agent {self.agent_id} received response in {time() - start} seconds. Response:\n\t{response}")
         actions = self.extract_actions(response)
         self.apply_actions(actions)
         self.num_actions_taken += 1
@@ -141,12 +142,13 @@ class Agent:
     async def run(self):
         """ Run the agent until game is over or error."""
         while not self.is_finished():
-            print("enviroment:", self.environment)
             try:
                 await self.act()
             except Exception as e:
                 printc(f"Error in agent {self.agent_id}: {e}", c="r")
                 break
+        if self.is_finished():
+            printc(f"Agent {self.agent_id} finished in {self.num_actions_taken} actions.", c="r")
         
 
 
@@ -156,7 +158,7 @@ class WikiNavAgent(Agent):
     Virtual class for agents that navigate Wikipedia with a target page.
     """
     target_page: str = field(default=None)
-    max_steps: int = field(default=3)
+    max_steps: int = field(default=10)
 
     def set_target_page(self, target_page: str):
         self.target_page = target_page

@@ -20,30 +20,53 @@ os.environ['HYDRA_FULL_ERROR'] = '1'
 
 #log = get_logger()
 
-@hydra.main(version_base = None, config_path="configs", config_name="config")
-def main(cfg: DictConfig):
+async def main(cfg: DictConfig):
+    start = time()
+    n_paths = 20
     model = instantiate(cfg.model)
+    handler = BatchHandler(model=model, batch_size=cfg.model.batch_size)
+
     #log.debug("Model instantiated.")
     fewshot = 5
-    paths_real = get_paths_real_sample(n=100)
+    paths_real = get_paths_real_sample(n=n_paths)
     path_demonstrations = get_path_demonstrations()
-    model_output_df = pd.DataFrame(columns=['src', 'tgt', 'human_path', 'model_output', 'history', 'temperature', 'top_p'])
 
-    for path in paths_real:
-        start = time()
-        messages = get_navigate_entire_path_prompt(**cfg.experiments.prompts,
-                                                   path_demonstrations=path_demonstrations,
-                                                   src=path["src"], tgt=path["tgt"],
-                                                   fewshot=fewshot, n=1)
-        response = model(messages)
+    agents = []
+    envs = []
+    for i,path in enumerate(paths_real):
+        env = LinkWikiEnviroment(path["src"])
+        agent = instantiate(cfg.agent)
+        agent.set_environment(env)
+        agent.set_handler(handler)
+        agent.set_target_page(path["tgt"])
+        agent.set_agent_id(i)
+        agents.append(agent)
+        envs.append(env)
 
-        # model_output_df = pd.concat([model_output_df, pd.DataFrame({'src': path["src"], 'tgt': path["tgt"], 'human_path': path["output"],
-        #                                                             'model_output': response, 'history': model.get_history_str(),
-        #                                                             'temperature': model.temperature, 'top_p': model.top_p}, index=[0])], ignore_index=True)
-        print(f"Time taken: {time() - start} seconds")
-        print(response)
-        break
-        #model_output_df.to_csv(os.path.join(cfg.output_dir, f"{model.model_name.split('/')[-1]}_fewshot_{fewshot}_outputs.tsv"), index=False, sep='\t')
+    agent_tasks = [asyncio.create_task(agent.run()) for agent in agents]
+    batch_processor = asyncio.create_task(handler.process_batch())
+
+    try:
+        results = await asyncio.gather(*agent_tasks, batch_processor, return_exceptions=False)
+        batch_processor.cancel()
+        for result in results:
+            print("result:",result)
+    except Exception as e:
+        raise e
+
+        
+
+ 
+    print(f"Total time taken: {time() - start} seconds")
+    # model_output_df = pd.concat([model_output_df, pd.DataFrame({'src': path["src"], 'tgt': path["tgt"], 'human_path': path["output"],
+    #                                                             'model_output': response, 'history': model.get_history_str(),
+    #                                                             'temperature': model.temperature, 'top_p': model.top_p}, index=[0])], ignore_index=True)
+
+@hydra.main(version_base = None, config_path="configs", config_name="config")
+def hydra_main(cfg: DictConfig):
+    asyncio.run(main(cfg))
 
 if __name__ == "__main__":
-    main()
+    hydra_main()
+
+#nohup python src/run.py &

@@ -38,8 +38,8 @@ async def batch_handler(cfg: DictConfig):
     env = LinkWikiEnviroment("Andy Warhol")
     model = instantiate(cfg.model)
 
-    handler = BatchHandler(model=model, batch_size=1)
-    num_agents = 1
+    handler = BatchHandler(model=model, batch_size=1) ###
+    num_agents = 3
     agents = [instantiate(cfg.agent) for i in range(num_agents)]
     for i, agent in enumerate(agents):
         agent.set_environment(env)
@@ -76,4 +76,4 @@ def llama_multiturn_prompt(cfg: DictConfig):
     print(preprocess_llama_chat(messages))
 
 if __name__ == "__main__":
-    llama_multiturn_prompt()
+    hydra_batch_handler()

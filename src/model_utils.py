@@ -137,7 +137,7 @@ class ChatModel:
         Generate tokens.
         If keep_history is True, then the model will keep track of the message history throughout all calls.
         """
-        printc(f"ChatModel received messages: {messages}", c="g")
+        #printc(f"ChatModel received messages: {messages}", c="g")
         if self.debug_mode:
             # time.sleep(0.2)  # small wait to see sensible msg timestamps
             return f"<{dt.strftime(dt.now(), '%H%M%S_%f')}> lorem ipsum dolor sit amet"
