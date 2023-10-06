@@ -3,7 +3,7 @@ import requests, sys
 def main ():
 
     link = 'https://snap.stanford.edu/data/wikispeedia/wikispeedia_paths-and-graph.tar.gz'
-    file_name = 'navigator/data/wikispeedia_paths-and-graph.tar.gz'
+    file_name = 'data/wikispeedia_paths-and-graph.tar.gz'
     with open(file_name, "wb") as f:
         print("Downloading %s" % file_name)
         response = requests.get(link, stream=True)
@@ -22,7 +22,7 @@ def main ():
                 sys.stdout.flush()
 
     link = 'https://snap.stanford.edu/data/wikispeedia/wikispeedia_articles_html.tar.gz'
-    file_name = 'navigator/data/wikispeedia_articles_html.tar.gz'
+    file_name = 'data/wikispeedia_articles_html.tar.gz'
     with open(file_name, "wb") as f:
         print("\nDownloading %s" % file_name)
         response = requests.get(link, stream=True)
