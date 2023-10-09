@@ -14,6 +14,11 @@ import torch
 
 B_INST, E_INST = "[INST]", "[/INST]"
 B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
+LLAMA_PROMPT_FORMAT = {
+    "user": "<s>"+B_INST+" {content} "+E_INST+" ",
+    "assistant": "{content} </s>",
+    "assistant_prefix": "{content} ",
+}
 
 SPECIAL_TAGS = [B_INST, E_INST, "<<SYS>>", "<</SYS>>"]
 UNSAFE_ERROR = "Error: special tags are not allowed as part of the prompt."
@@ -76,7 +81,7 @@ class HuggingFaceModel(ChatModel):
         This method generates the output using the model.
         """
         data = self._preprocess(data)
-        # printc(f"data: {data}")
+        printc(f"data: {data}", c="g")
         # outputs = List[dict{"generated_text": str}], for text generation models
         outputs = self.generator(data,
                                  max_new_tokens=self.context_max_tokens,
@@ -146,22 +151,14 @@ def preprocess_llama_chat(dialog):
     if dialog[0]["role"] == "system":
         formatted_content = B_SYS + dialog[0]["content"] + E_SYS + dialog[1]["content"]
         dialog = [{"role": dialog[1]["role"], "content": formatted_content}] + dialog[2:]
-
-    # If dialog only contains one item, handle it separately
-    if len(dialog) == 1:
-        dialog_list = [f"<s>{B_INST} {(dialog[0]['content']).strip()} {E_INST}"]
-    else:
-        # Create a formatted string for each paired prompt and answer in the dialog
-        dialog_list = [f"<s>{B_INST} {(prompt['content']).strip()} {E_INST} {(answer['content']).strip()} </s>"
-                       for prompt, answer in zip(dialog[::2], dialog[1::2])]
-    if dialog[-1]["role"] == "user":
-        dialog_list += [f"<s>{B_INST} {(dialog[-1]['content']).strip()} {E_INST}"]
-    elif dialog[-1]["role"] == "assistant":
-        # when last message is from AI, we assume it's a prefix for continuation
-        dialog_list += [f"{(dialog[-1]['content']).strip()}"]
-    # combine all dialog strings into a single string separated by newlines
+    
+    dialog_list = []
+    for msg in dialog:
+        if msg["role"] in LLAMA_PROMPT_FORMAT:
+            dialog_list.append(LLAMA_PROMPT_FORMAT[msg["role"]].format(content=msg["content"]))
+        else:
+            raise ValueError(f"Invalid role: {msg['role']}")
     dialog_text = "".join(dialog_list)
-
     return dialog_text
 
 
