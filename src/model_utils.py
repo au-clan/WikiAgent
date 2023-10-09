@@ -76,6 +76,10 @@ class SystemMessage(BaseMessage):
         # i think this is the only class that will require adding.
         return SystemMessage(self.content + "\n" + otherSystem.content)
 
+@define
+class AIMessagePrefix(BaseMessage):
+    role: str = "assistant_prefix"
+
 
 @define
 class ChatModel:
