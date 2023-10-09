@@ -81,7 +81,6 @@ class HuggingFaceModel(ChatModel):
         outputs = self.generator(data,
                                  max_new_tokens=self.context_max_tokens,
                                  pad_token_id=self.tokenizer.eos_token_id,
-                                 temperature=self.temperature,
                                  do_sample=self.do_sample, top_p=self.top_p,)#[:, data.shape[1]:]
         # outputs = self.model.generate(data,
         #                               max_new_tokens=self.context_max_tokens,
@@ -126,6 +125,7 @@ class HuggingFaceModel(ChatModel):
         self.generator = pipeline("text-generation", model=self.model_name,
                                                 tokenizer=self.model_name,
                                                 batch_size=self.batch_size, 
+                                                temperature=self.temperature,
                                                 device=0 if self.device == "cuda" else -1)
         self.tokenizer = self.generator.tokenizer
         self.generator.tokenizer.pad_token_id = self.tokenizer.eos_token_id
@@ -154,9 +154,11 @@ def preprocess_llama_chat(dialog):
         # Create a formatted string for each paired prompt and answer in the dialog
         dialog_list = [f"<s>{B_INST} {(prompt['content']).strip()} {E_INST} {(answer['content']).strip()} </s>"
                        for prompt, answer in zip(dialog[::2], dialog[1::2])]
-        # Append the last dialog's content separately if the number of dialog items is odd
+    if dialog[-1]["role"] == "user":
         dialog_list += [f"<s>{B_INST} {(dialog[-1]['content']).strip()} {E_INST}"]
-
+    elif dialog[-1]["role"] == "assistant":
+        # when last message is from AI, we assume it's a prefix for continuation
+        dialog_list += [f"{(dialog[-1]['content']).strip()}"]
     # combine all dialog strings into a single string separated by newlines
     dialog_text = "".join(dialog_list)
 
