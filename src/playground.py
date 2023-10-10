@@ -7,7 +7,7 @@ from pprint import pprint
 from time import time
 import asyncio
 
-from model_utils import SystemMessage, HumanMessage, AIMessage, BaseMessage
+from model_utils import SystemMessage, HumanMessage, AIMessage, AIMessagePrefix, BaseMessage
 from prompt_utils import get_navigate_entire_path_prompt
 from logger import get_logger
 from utils import printc, load_tsv_to_dict_list
@@ -63,17 +63,45 @@ def hydra_batch_handler(cfg: DictConfig):
     """ Do this bc the hydra decorator doesn't work with async functions."""
     asyncio.run(batch_handler(cfg))
 
-@hydra.main(version_base = None, config_path="configs", config_name="config")
-def llama_multiturn_prompt(cfg: DictConfig):
+def llama_multiturn_prompt():
     # model = instantiate(cfg.model)
-    message = [SystemMessage("You are a nice assistant!"), 
-               HumanMessage("Hello!"), 
-               AIMessage("How are you?"), 
-               HumanMessage("I'm good, how are you?"),
-               AIMessage("I'm good too!"),
-               HumanMessage("That's great!"),]
+    message = [SystemMessage("sys:You are a nice assistant!"), 
+               HumanMessage("u:Hello!"), 
+               AIMessage("ai:How are you?"),
+               HumanMessage("u:I'm good!"),
+               AIMessagePrefix("ai_p:That is"),
+               AIMessage("ai: good!"),
+    ]
     messages = [m.prepare_for_generation() for m in message]
     print(preprocess_llama_chat(messages))
 
+async def test_stuff(cfg: DictConfig):
+    env = LinkWikiEnviroment("Napoleonic Wars")
+    model = instantiate(cfg.model)
+    handler = BatchHandler(model=model, batch_size=1)
+    agent = instantiate(cfg.agent)
+    agent.set_environment(env)
+    agent.set_target_page("Superman")
+    agent.set_handler(handler)
+    agent.set_agent_id(0)
+
+    agent_tasks = [asyncio.create_task(agent.run())]
+    batch_processor = asyncio.create_task(handler.process_batch())
+    
+    try:
+        results = await asyncio.gather(*agent_tasks, batch_processor, return_exceptions=False)
+        batch_processor.cancel()
+        for result in results:
+            print("result:",result)
+    except Exception as e:
+        raise e
+
+def hydra_wrapper(func):
+    @hydra.main(version_base = None, config_path="configs", config_name="config")
+    def wrapper(cfg: DictConfig):
+        asyncio.run(func(cfg))
+    wrapper()
+
 if __name__ == "__main__":
-    hydra_batch_handler()
+    #llama_multiturn_prompt()
+    hydra_wrapper(test_stuff)

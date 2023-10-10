@@ -2,7 +2,7 @@ import attr
 from attr import define, field
 import sys
 sys.path.append("src/")
-from utils import load_links, wikify_article_name
+from utils import load_links, wikify_article_name, un_wikify_article_name
 
 
 # every time the current page is updated, we should update the environment

@@ -22,7 +22,7 @@ os.environ['HYDRA_FULL_ERROR'] = '1'
 
 async def main(cfg: DictConfig):
     start = time()
-    n_paths = 20
+    n_paths = 50
     model = instantiate(cfg.model)
     handler = BatchHandler(model=model, batch_size=cfg.model.batch_size)
 
@@ -62,11 +62,13 @@ async def main(cfg: DictConfig):
     #                                                             'model_output': response, 'history': model.get_history_str(),
     #                                                             'temperature': model.temperature, 'top_p': model.top_p}, index=[0])], ignore_index=True)
 
-@hydra.main(version_base = None, config_path="configs", config_name="config")
-def hydra_main(cfg: DictConfig):
-    asyncio.run(main(cfg))
+def hydra_wrapper(func):
+    @hydra.main(version_base = None, config_path="configs", config_name="config")
+    def wrapper(cfg: DictConfig):
+        asyncio.run(func(cfg))
+    wrapper()
 
 if __name__ == "__main__":
-    hydra_main()
+    hydra_wrapper(main)
 
 #nohup python src/run.py &

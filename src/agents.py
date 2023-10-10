@@ -7,11 +7,12 @@ from attr import define, field
 import sys
 import yaml
 import asyncio
-from model_utils import SystemMessage, HumanMessage, AIMessage, BaseMessage
+from model_utils import SystemMessage, HumanMessage, AIMessage, AIMessagePrefix, BaseMessage
 from environments import Environment
 from batch_handler import BatchHandler
-from utils import load_tsv_to_dict_list, printc, extract_json_from_response, get_field_from_json
+from utils import load_tsv_to_dict_list, printc, extract_json_from_response, un_wikify_article_name, wikify_article_name
 from time import time
+import pandas as pd
 import json
 
 @define
@@ -30,20 +31,26 @@ class Agent:
     template_file: str = field(default="src/configs/agent/base_agent.yaml")
     prompt_template: dict = field(factory=dict)
     demonstration_template: str = field(factory=str)
-
-    # Filled in templates
-    prompt: list[BaseMessage] = field(factory=list)
     agent_description: str = field(factory=str)
     user_template: str = field(factory=str)
 
     fewshot: int = field(default=5)
     demonstrations_file: str = field(default=None)
+    prompt: list[BaseMessage] = field(factory=list)
 
     # data about a run
     num_actions_taken: int = field(default=0)
+    run_df = field(factory=pd.DataFrame)
+
 
     def __attrs_post_init__(self):
         self.prompt_template = self._load_from_template_file(self.base_template_file, 'prompt')
+        if not self.demonstration_template:
+            self.demonstration_template = self._load_from_template_file(self.template_file, 'demonstration_template')
+        if not self.agent_description:
+            self.agent_description = self._load_from_template_file(self.template_file, 'agent_description')
+        if not self.user_template:
+            self.user_template = self._load_from_template_file(self.template_file, 'user_template')
 
     def to_dict(self):
         # Create a dictionary manually
@@ -105,9 +112,11 @@ class Agent:
         env_data = self.observe_environment()
 
         user_message_content = self.user_template.format(replace = env_data)
-        user_message = HumanMessage(role='user', content = user_message_content)
+        user_message = HumanMessage(content = user_message_content)
+        assistant_prefix = AIMessagePrefix(self.prompt_template['assistant_prefix'])
 
-        prompt = [system_message, user_message]
+        prompt = [system_message, user_message, assistant_prefix]
+        self.prompt = prompt
         return prompt
         
     def extract_actions(self, response: BaseMessage) -> dict:
@@ -123,17 +132,22 @@ class Agent:
         """ Applies the actions to the environment."""
         raise NotImplementedError("Subclasses must implement the apply_actions method.")
 
+    def update_run_df(self):
+        """ Depends on the agent type."""
+        pass
+
     async def act(self):
         """ One turn of the agent."""
         printc(f"Agent {self.agent_id} on page {self.environment.current_page}.", c="r")
         start = time()
         prompt = self.build_prompt()
-        printc(f"Agent {self.agent_id} says:\n\t{prompt[-1].content}", c="r")
+        printc(f"Agent {self.agent_id} says:\n{prompt[-2].content}", c="r")
         response = await self.handler.send_prompt(self.agent_id, prompt)
-        printc(f"Agent {self.agent_id} received response in {time() - start} seconds. Response:\n\t{response}")
+        printc(f"Agent {self.agent_id} received response in {time() - start} seconds. Response:\n{response}")
         actions = self.extract_actions(response)
         self.apply_actions(actions)
         self.num_actions_taken += 1
+        # self.update_run_df(response.content, actions)
     
     def is_finished(self):
         """ Finishing condition is agent type dependent."""
@@ -161,13 +175,28 @@ class WikiNavAgent(Agent):
     max_steps: int = field(default=10)
 
     def set_target_page(self, target_page: str):
-        self.target_page = target_page
+        self.target_page = wikify_article_name(target_page)
     
     def is_finished(self, force=False):
         if force:
             return True
         else:
-            return self.environment.current_page == self.target_page or self.num_actions_taken >= self.max_steps
+            return un_wikify_article_name(self.environment.current_page) == self.target_page or self.num_actions_taken >= self.max_steps
+        
+    def update_run_df(self, response: str, click: str):
+        row = {"agent_id": self.agent_id, 
+                "src": self.environment.current_page,
+                "tgt": self.target_page,
+                "cands": ";".join(self.environment.links),
+                "click": click,
+                "step_num": self.num_actions_taken,
+                "prompt": self.prompt[-2].content,
+                "response": response,
+        }
+        self.run_df = self.run_df.append(row, ignore_index=True)
+
+                
+
         
 
 @define
@@ -184,13 +213,16 @@ class LinkClickAgent(WikiNavAgent):
         for d in dicts:
             d['links'] = d.pop('cands')
             d['click'] = d.pop('output')
+
+            d['links'] = ';'.join([un_wikify_article_name(link) for link in d['links'].split(';')])
+            d['click'] = un_wikify_article_name(d['click'])
         return dicts
 
     def observe_environment(self):
         observed_data = {
-            "src": self.environment.current_page,
-            "tgt": self.target_page,
-            "links": self.environment.links,
+            "src": un_wikify_article_name(self.environment.current_page),
+            "tgt": un_wikify_article_name(self.target_page),
+            "links": ";".join([un_wikify_article_name(link) for link in self.environment.links]),
         }
         return observed_data
 

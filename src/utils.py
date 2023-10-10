@@ -75,6 +75,8 @@ def load_links(file="data/wikispeedia/wikispeedia_paths-and-graph/links.tsv") ->
 
 def wikify_article_name(name):
     return "_".join(name.strip().split(" "))
+def un_wikify_article_name(name):
+    return " ".join(name.strip().split("_"))
 
 def get_super(x):
     """

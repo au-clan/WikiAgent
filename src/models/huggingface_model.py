@@ -17,7 +17,7 @@ B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
 LLAMA_PROMPT_FORMAT = {
     "user": "<s>"+B_INST+" {content} "+E_INST+" ",
     "assistant": "{content} </s>",
-    "assistant_prefix": "{content} ",
+    "assistant_prefix": "{content}",
 }
 
 SPECIAL_TAGS = [B_INST, E_INST, "<<SYS>>", "<</SYS>>"]
@@ -81,7 +81,7 @@ class HuggingFaceModel(ChatModel):
         This method generates the output using the model.
         """
         data = self._preprocess(data)
-        printc(f"data: {data}", c="g")
+        # printc(f"data: {data}", c="g")
         # outputs = List[dict{"generated_text": str}], for text generation models
         outputs = self.generator(data,
                                  max_new_tokens=self.context_max_tokens,

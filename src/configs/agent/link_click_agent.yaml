@@ -8,7 +8,7 @@ agent_description: |-
   Here are some previous conversations between the Assistant and User:
 
 user_template: |-
-  User: I'm currently on the page {replace[src]} and the target page is {replace[tgt]}. This is a list of links on this page: {replace[links]}. Tell me what link I should click on.
+  User: I'm currently on the page {replace[src]} and the target page is {replace[tgt]}. This is a list of links on this page: {replace[links]}. Tell me what link I should click on to get closer to the target.
 
 demonstration_template: |-
   {user_template}
