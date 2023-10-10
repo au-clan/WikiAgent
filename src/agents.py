@@ -10,7 +10,7 @@ import asyncio
 from model_utils import SystemMessage, HumanMessage, AIMessage, AIMessagePrefix, BaseMessage
 from environments import Environment
 from batch_handler import BatchHandler
-from utils import load_tsv_to_dict_list, printc, extract_json_from_response, un_wikify_article_name, wikify_article_name
+from utils import load_tsv_to_dict_list, printc, extract_json_from_response, wikify_article_name
 from time import time
 import pandas as pd
 import json
@@ -23,6 +23,9 @@ class Agent:
     environment: Environment = field(default=None)
     handler: BatchHandler = field(default=None)
     agent_id: int = field(default=None)
+
+    #features that are common to all agents
+    use_feedback: bool = field(default=False)
 
     # File with templates for the prompt and demonstration structure
     base_template_file: str = field(default="src/configs/agent/base_agent.yaml")
@@ -39,8 +42,11 @@ class Agent:
     prompt: list[BaseMessage] = field(factory=list)
 
     # data about a run
-    num_actions_taken: int = field(default=0)
+    num_actions: int = field(default=0)
+    num_errors: int = field(default=0)
     run_df = field(factory=pd.DataFrame)
+    user_prompt_history = field(factory=list)
+    response_history = field(factory=list)
 
 
     def __attrs_post_init__(self):
@@ -74,20 +80,12 @@ class Agent:
     def set_agent_id(self, agent_id: int):
         self.agent_id = agent_id
         
-    def get_system_message(self):
-        system_message_content = self.prompt_template['system'].format(
-            agent_description=self.agent_description,
-            fewshot_demonstrations=self.get_fewshot_demonstrations(),
-        )
-        return SystemMessage(role='system', content = system_message_content)
-    
-    def get_fewshot_demonstrations(self) -> str:
+    def get_fewshot_demonstrations(self) -> list[str]:
         demos_list = self._load_fewshot_demonstrations_data()
-        fewshot_demonstrations = ""
+        fewshot_demonstrations = []
         for i in range(self.fewshot):
             user_template_filled = self.user_template.format(replace = demos_list[i])
-            fewshot_demonstrations += self.demonstration_template.format(user_template = user_template_filled, replace = demos_list[i])
-            fewshot_demonstrations += "\n"
+            fewshot_demonstrations.append(self.demonstration_template.format(user_template = user_template_filled, replace = demos_list[i]))
         return fewshot_demonstrations
 
     def _load_fewshot_demonstrations_data(self) -> list[dict]:
@@ -104,20 +102,36 @@ class Agent:
         """
         raise NotImplementedError("Subclasses must implement the observe_environment method.")
     
-    def build_prompt(self):
+    def build_prompt(self, feedback: str = None) -> list[BaseMessage]:
         """
         Agent observes the environment and builds a prompt, that will be passed to the model.
+        
+        args:
+            feedback: str = None
+                Feedback from the user.
         """
-        system_message = self.get_system_message()
-        env_data = self.observe_environment()
+        if not feedback:
+            system_message_content = self.prompt_template['system'].format(
+                agent_description=self.agent_description,
+                fewshot_demonstrations="\n".join(self.get_fewshot_demonstrations()),
+            )
+            system_message = SystemMessage(system_message_content)
+            env_data = self.observe_environment()
 
-        user_message_content = self.user_template.format(replace = env_data)
-        user_message = HumanMessage(content = user_message_content)
-        assistant_prefix = AIMessagePrefix(self.prompt_template['assistant_prefix'])
+            user_message_content = self.user_template.format(replace = env_data)
+            user_message = HumanMessage(content = user_message_content)
+            assistant_prefix = AIMessagePrefix(self.prompt_template['assistant_prefix'])
 
-        prompt = [system_message, user_message, assistant_prefix]
-        self.prompt = prompt
+            prompt = [system_message, user_message, assistant_prefix]
+            self.prompt = prompt
+        else:
+            # append bad response and feedback to the prompt
+            self.prompt.append(AIMessage(self.response_history[-1]))
+            self.prompt.append(HumanMessage(feedback))
+            self.prompt.append(AIMessagePrefix(self.prompt_template['assistant_prefix']))
+            prompt = self.prompt    
         return prompt
+    
         
     def extract_actions(self, response: BaseMessage) -> dict:
         """ Processes the model output and returns a dict with the agent's choices."""
@@ -136,33 +150,34 @@ class Agent:
         """ Depends on the agent type."""
         pass
 
-    async def act(self):
-        """ One turn of the agent."""
+    async def act(self, feedback: str = None):
+        """ One turn of the agent. -Build prompt; Send prompt to model; Apply actions
+        args:
+            feedback: str = None
+                Feedback from the user. If not None, it means the agent made a mistake and needs to be corrected.
+        """
         printc(f"Agent {self.agent_id} on page {self.environment.current_page}.", c="r")
         start = time()
-        prompt = self.build_prompt()
-        printc(f"Agent {self.agent_id} says:\n{prompt[-2].content}", c="r")
+        prompt = self.build_prompt(feedback)
+
+        printc(f"Agent {self.agent_id} full prompt:\n", c="r")
+        for p in prompt:
+            printc(f"{p.role}: {p.content}\n", c="r")
+        self.user_prompt_history.append(prompt[-2].content)
         response = await self.handler.send_prompt(self.agent_id, prompt)
+
         printc(f"Agent {self.agent_id} received response in {time() - start} seconds. Response:\n{response}")
+        self.response_history.append(response.content)
         actions = self.extract_actions(response)
         self.apply_actions(actions)
-        self.num_actions_taken += 1
-        # self.update_run_df(response.content, actions)
-    
+
     def is_finished(self):
         """ Finishing condition is agent type dependent."""
         raise NotImplementedError("Subclasses must implement the is_finished method.")
     
     async def run(self):
-        """ Run the agent until game is over or error."""
-        while not self.is_finished():
-            try:
-                await self.act()
-            except Exception as e:
-                printc(f"Error in agent {self.agent_id}: {e}", c="r")
-                break
-        if self.is_finished():
-            printc(f"Agent {self.agent_id} finished in {self.num_actions_taken} actions.", c="r")
+        """Agent type dependent."""
+        raise NotImplementedError("Subclasses must implement the run method.")
         
 
 
@@ -172,7 +187,16 @@ class WikiNavAgent(Agent):
     Virtual class for agents that navigate Wikipedia with a target page.
     """
     target_page: str = field(default=None)
-    max_steps: int = field(default=10)
+
+    # features
+    use_retry: bool = field(default=False)
+    use_reasoning: bool = field(default=False)
+    use_backtrack: bool = field(default=False) # backtracking
+
+    # finishing conditions
+    max_errors: int = field(default=2) # for feedback
+    max_steps: int = field(default=15)
+
 
     def set_target_page(self, target_page: str):
         self.target_page = wikify_article_name(target_page)
@@ -181,23 +205,45 @@ class WikiNavAgent(Agent):
         if force:
             return True
         else:
-            return un_wikify_article_name(self.environment.current_page) == self.target_page or self.num_actions_taken >= self.max_steps
+            printc(f"is_finished: {self.environment.current_page} == {self.target_page} or {self.num_actions} >= {self.max_steps} or {self.num_errors} >= {self.max_errors}", c="r")
+            return self.environment.current_page == self.target_page or self.num_actions >= self.max_steps or self.num_errors >= self.max_errors
         
-    def update_run_df(self, response: str, click: str):
-        row = {"agent_id": self.agent_id, 
-                "src": self.environment.current_page,
-                "tgt": self.target_page,
-                "cands": ";".join(self.environment.links),
-                "click": click,
-                "step_num": self.num_actions_taken,
-                "prompt": self.prompt[-2].content,
-                "response": response,
-        }
-        self.run_df = self.run_df.append(row, ignore_index=True)
+    def get_run_df(self):
+        df = pd.DataFrame({
+            'agent_id': self.agent_id,
+            'agent_type': self.__class__.__name__,
+            'src': self.environment.page_history[0],
+            'tgt': self.target_page,
+            'path': ";".join(self.environment.page_history),
+            'fewshot': self.fewshot,
+            'num_actions': self.num_actions,
+            'num_errors': self.num_errors,
+            'user_prompt_history': [self.user_prompt_history],
+            'response_history': [self.response_history],
+        })
+        return df
+    
+    async def run(self):
+        """ Run the agent until game is over or error."""
+        while not self.is_finished():
+            try:
+                await self.act()
+                self.num_actions += 1
+                self.num_errors = 0
+            except Exception as e:
+                printc(f"Error in agent {self.agent_id}: {e}", c="r")
+                self.num_errors += 1
+                if self.use_retry:
+                    pass
+                else:
+                    break
 
-                
+        if self.is_finished() and self.environment.current_page == self.target_page:
+            printc(f"Agent {self.agent_id} finished in {self.num_actions} actions.", c="r")
+            return True
+        else:
+            return False
 
-        
 
 @define
 class LinkClickAgent(WikiNavAgent):
@@ -214,15 +260,17 @@ class LinkClickAgent(WikiNavAgent):
             d['links'] = d.pop('cands')
             d['click'] = d.pop('output')
 
-            d['links'] = ';'.join([un_wikify_article_name(link) for link in d['links'].split(';')])
-            d['click'] = un_wikify_article_name(d['click'])
+            d['src'] = d['src']
+            d['tgt'] = d['tgt']
+            d['links'] = ';'.join([link for link in d['links'].split(';')])
+            d['click'] = d['click']
         return dicts
 
     def observe_environment(self):
         observed_data = {
-            "src": un_wikify_article_name(self.environment.current_page),
-            "tgt": un_wikify_article_name(self.target_page),
-            "links": ";".join([un_wikify_article_name(link) for link in self.environment.links]),
+            "src": self.environment.current_page,
+            "tgt": self.target_page,
+            "links": ";".join([link for link in self.environment.links]),
         }
         return observed_data
 
@@ -241,6 +289,14 @@ class LinkClickAgent(WikiNavAgent):
         """
         Apply actions from the model.
         """
-        assert 'click' in actions, "Invalid actions for LinkClickAgent."
-        self.click(actions['click'])
+        # if 'click' not in actions:
+        if 'next_page' not in actions:
+            raise AssertionError(f"Invalid action: {actions}")
+        else:
+            try:
+                # self.click(actions['click'])
+                self.click(actions['next_page'])
+            except Exception as e:
+                raise e
+        
 

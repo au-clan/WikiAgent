@@ -93,7 +93,6 @@ class HuggingFaceModel(ChatModel):
         #                               temperature=self.temperature,
         #                               do_sample=self.do_sample, top_p=self.top_p,)[:, data.shape[1]:]
         # printc(f"model outputs: {outputs}", c="g")
-
         output = self._postprocess(outputs)
         return output
 

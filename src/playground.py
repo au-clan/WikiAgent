@@ -76,12 +76,12 @@ def llama_multiturn_prompt():
     print(preprocess_llama_chat(messages))
 
 async def test_stuff(cfg: DictConfig):
-    env = LinkWikiEnviroment("Napoleonic Wars")
+    env = LinkWikiEnviroment("Portugal")
     model = instantiate(cfg.model)
-    handler = BatchHandler(model=model, batch_size=1)
+    handler = BatchHandler(batch_size=1, debug_mode=False, model=model)
     agent = instantiate(cfg.agent)
     agent.set_environment(env)
-    agent.set_target_page("Superman")
+    agent.set_target_page("Zebra")
     agent.set_handler(handler)
     agent.set_agent_id(0)
 
@@ -91,6 +91,7 @@ async def test_stuff(cfg: DictConfig):
     try:
         results = await asyncio.gather(*agent_tasks, batch_processor, return_exceptions=False)
         batch_processor.cancel()
+        agent.get_run_df().to_csv("agent_run_df.tsv", sep="\t", index=False)
         for result in results:
             print("result:",result)
     except Exception as e:

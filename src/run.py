@@ -22,14 +22,12 @@ os.environ['HYDRA_FULL_ERROR'] = '1'
 
 async def main(cfg: DictConfig):
     start = time()
-    n_paths = 50
+    n_paths = 100
     model = instantiate(cfg.model)
     handler = BatchHandler(model=model, batch_size=cfg.model.batch_size)
 
     #log.debug("Model instantiated.")
-    fewshot = 5
     paths_real = get_paths_real_sample(n=n_paths)
-    path_demonstrations = get_path_demonstrations()
 
     agents = []
     envs = []
@@ -49,6 +47,9 @@ async def main(cfg: DictConfig):
     try:
         results = await asyncio.gather(*agent_tasks, batch_processor, return_exceptions=False)
         batch_processor.cancel()
+        dfs = [agent.get_run_df() for agent in agents]
+        df = pd.concat(dfs, ignore_index=True)
+        df.to_csv(os.path.join(cfg.output_dir, "agent_runs.tsv"), sep="\t", index=False)
         for result in results:
             print("result:",result)
     except Exception as e:

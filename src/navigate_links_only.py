@@ -5,25 +5,6 @@ import pandas as pd
 from pprint import pprint
 from utils import load_links
 
-
-def effective_path(path_str: str) -> str:
-    """
-    Creates an effective path, removing backtracking.
-    Should be in format link1;link2;link3;...
-    """
-    path = path_str.split(";")
-    effective_path = path.copy()
-    # if there's an element '<' remove it and the previous element
-    i=0
-    while i < len(effective_path):
-        if effective_path[i] == '<':
-            effective_path.pop(i)
-            effective_path.pop(i-1)
-            i-=1
-        else:
-            i += 1
-    return ";".join(effective_path)
-
         
 def check_path(src, tgt, generated_path, links_file="data/wikispeedia/wikispeedia_paths-and-graph/links.tsv", check_clicks=True):
     """

@@ -59,7 +59,7 @@ class WikiEnvironment(Environment):
     def change_page(self, new_page: str, **kwargs):
         wikified_new_page = wikify_article_name(new_page)
 
-        assert wikified_new_page in self.links, f"Invalid click {wikified_new_page}."
+        assert wikified_new_page in self.links, f"Link {wikified_new_page} not on current page. Try again."
 
         self.page_history.append(new_page)
         self.content_history.append(self.content)
