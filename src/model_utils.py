@@ -99,7 +99,7 @@ class ChatModel:
     debug_mode: bool = field(default=False)
     temperature: float = field(default=0.0)
     generation_params: dict = field(factory=dict)
-    context_max_tokens: int = field(default=1024)
+    context_max_tokens: int = field(default=128)
     prompt_cost: float = field(default=0)
     completion_cost: float = field(default=0)
     tpm: int = field(default=0)
@@ -283,3 +283,7 @@ def get_api_settings(api_provider, fpath='data/api_settings/apis.yaml'):
         raise KeyError(f'error: no details available for model {api_provider} - pick one of {models}')
 
     return details[api_provider]
+
+def printc_prompt(prompt: List[BaseMessage], c="r"):
+    for msg in prompt:
+        printc(f"{msg.role}: {msg.content}", c=c)

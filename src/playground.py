@@ -76,12 +76,13 @@ def llama_multiturn_prompt():
     print(preprocess_llama_chat(messages))
 
 async def test_stuff(cfg: DictConfig):
-    env = LinkWikiEnviroment("Portugal")
-    model = instantiate(cfg.model)
-    handler = BatchHandler(batch_size=1, debug_mode=False, model=model)
+    env = LinkWikiEnviroment(cfg.experiment.src)
+    model = instantiate(cfg.model) if not cfg.experiment.debug_mode else None
+    print("Stop token:", model.stop_token)
+    handler = BatchHandler(batch_size=1, debug_mode=cfg.experiment.debug_mode, model=model)
     agent = instantiate(cfg.agent)
     agent.set_environment(env)
-    agent.set_target_page("Zebra")
+    agent.set_target_page(cfg.experiment.tgt)
     agent.set_handler(handler)
     agent.set_agent_id(0)
 

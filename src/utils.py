@@ -3,6 +3,19 @@ from urllib.parse import unquote
 import pandas as pd
 import regex
 
+def get_paths_real_sample(n=100, paths_real_file='data/wikispeedia/wikispeedia_paths-and-graph/paths_real_processed.tsv') -> list[dict]:
+    """
+    Gets a sample of unique paths from the paths_real_processed.tsv file.
+    Note: right now returns only the src and tgt pages.
+    """
+    paths_real_df = pd.read_csv(paths_real_file, sep='\t')
+
+    paths_real_sample_df = paths_real_df.groupby(['src', 'tgt']).agg({"shpl": "min", "shepl": "min"}).reset_index().sample(n=n, random_state=42)
+    paths_real_sample = []
+    for i, row in paths_real_sample_df.iterrows():
+        paths_real_sample.append({"src": row["src"], "tgt": row["tgt"]})
+    return paths_real_sample
+
 def effective_path(path_str: str) -> str:
     """
     Creates an effective path, removing backtracking.

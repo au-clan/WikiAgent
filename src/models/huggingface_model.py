@@ -7,7 +7,7 @@ import sys
 sys.path.append("src/")
 # fix for importing pytorch: https://github.com/pytorch/pytorch/issues/78490
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
-from transformers import pipeline
+from transformers import pipeline, StoppingCriteria, StoppingCriteriaList
 from model_utils import BaseMessage, ChatModel, AIMessage, SystemMessage, HumanMessage
 from utils import printc
 import torch
@@ -40,6 +40,7 @@ class HuggingFaceModel(ChatModel):
     do_sample: bool = True # whether to sample or not
     num_threads: int = 16 # number of CPU cores to use
     raw_prompt: str = None # the raw prompt
+    stop_token: int = None # the stop token (besides the eos token)
 
     def __attrs_post_init__(self):
         """
@@ -83,10 +84,17 @@ class HuggingFaceModel(ChatModel):
         data = self._preprocess(data)
         # printc(f"data: {data}", c="g")
         # outputs = List[dict{"generated_text": str}], for text generation models
+        if self.stop_token:
+            stopping_criteria = self.get_stopping_criteria()
+        else:
+            stopping_criteria = None
+
         outputs = self.generator(data,
                                  max_new_tokens=self.context_max_tokens,
                                  pad_token_id=self.tokenizer.eos_token_id,
-                                 do_sample=self.do_sample, top_p=self.top_p,)#[:, data.shape[1]:]
+                                 do_sample=self.do_sample, 
+                                 top_p=self.top_p,
+                                 stopping_criteria=stopping_criteria)#[:, data.shape[1]:]
         # outputs = self.model.generate(data,
         #                               max_new_tokens=self.context_max_tokens,
         #                               pad_token_id=self.tokenizer.eos_token_id,
@@ -94,6 +102,8 @@ class HuggingFaceModel(ChatModel):
         #                               do_sample=self.do_sample, top_p=self.top_p,)[:, data.shape[1]:]
         # printc(f"model outputs: {outputs}", c="g")
         output = self._postprocess(outputs)
+        token_list = self.tokenizer.encode(output[0].content)
+        # printc(f"output tokens: {[(token_list[i], self.tokenizer.decode(token_list[i])) for i in range(len(token_list))]}", c="g")
         return output
 
     def _postprocess(self, outputs) -> AIMessage:
@@ -135,6 +145,11 @@ class HuggingFaceModel(ChatModel):
         self.generator.tokenizer.pad_token_id = self.tokenizer.eos_token_id
         torch.set_num_threads(self.num_threads)
 
+    def get_stopping_criteria(self):
+        # printc(f"stop_word: {(self.stop_token, self.tokenizer.decode(self.stop_token))}", c="g")
+        
+        return [CustomStoppingCriteria(stops=[[self.stop_token]])]
+
 def preprocess_llama_chat(dialog):
     """
     This function preprocesses a chat dialog by joining the dialog into a single formatted string.
@@ -160,6 +175,16 @@ def preprocess_llama_chat(dialog):
     dialog_text = "".join(dialog_list)
     return dialog_text
 
+
+class CustomStoppingCriteria(StoppingCriteria):
+            def __init__(self, stops = []):
+                self.stops = stops
+
+
+            def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, stops = []) -> bool:
+                last_id = input_ids[:,-1].tolist()
+                # printc(f"last_id: {last_id}, stops: {self.stops}, is in stops: {last_id in self.stops}", c="g")
+                return last_id in self.stops
 
 if __name__ == "__main__":
     # test that this module works

@@ -5,11 +5,13 @@ agent_description: |-
 
   All of Assistant's communication is performed using this JSON format.
 
-#Here are some previous conversations between the Assistant and User:
 
 user_template: |-
   User: I'm currently on the page {replace[src]} and the target page is {replace[tgt]}. Tell me what link I should click on to get closer to the target. This is a list of links on the current page:{replace[links]}
-  
+
+assistant_prefix: |
+  Assistant:
+  {
 
 demonstration_template: |-
   {user_template}
@@ -23,3 +25,4 @@ demonstrations_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/click_d
 fewshot: 3
 use_retry: True
 max_errors: 2
+multiturn_demonstrations: False

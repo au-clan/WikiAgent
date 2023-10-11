@@ -1,8 +1,8 @@
 defaults:
   - _self_
-  - experiments: defaults_inference
+  - experiment: agent_test
   - model: llama_2_7b_chat_hf
-  - agent: link_click_agent
+  - agent: multiturn_demo_link_click_agent
   - hydra: inference
 
 # Directories
@@ -10,8 +10,7 @@ work_dir: ${hydra:runtime.cwd}
 data_dir: ${work_dir}/data
 # path to output directory, created dynamically by hydra
 output_dir: ${hydra:runtime.output_dir}
-# other paths
-agent_prompts_dir: ${data_dir}/agent_prompts
 
 # determines the log directory's parent folder
 experiment_name: inference
+run_name: run #for sweep runs folder

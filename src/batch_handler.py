@@ -13,7 +13,7 @@ class BatchHandler:
     - For a queue < batch_size, right now it doesn't send the prompt to the model.
     """
     model: ChatModel = field(default=None)
-    batch_size: int = field(default=4)
+    batch_size: int = field(default=1)
     queue: asyncio.Queue = field(factory=asyncio.Queue)
     responses: dict = field(factory=dict)
     debug_mode: bool = field(default=False)

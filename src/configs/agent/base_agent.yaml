@@ -7,9 +7,6 @@ prompt:
       Here is the latest conversation between the Assistant and User:
     user: |
       User: {user_template}
-    assistant_prefix: |
-      Assistant:
-      {
 # agent_description: |-
 #   You are a nice assistant.
 

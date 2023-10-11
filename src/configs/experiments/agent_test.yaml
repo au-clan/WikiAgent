@@ -1,8 +1,0 @@
-base_agent:
-  _target_: agents.Agent
-  # File with templates for the prompt and demonstration structure
-  template_file: ${agent_prompts_dir}/base_agent.yaml
-
-link_click_agent:
-  _target_: agents.LinkClickAgent
-  template_file: ${agent_prompts_dir}/link_click_agent.yaml

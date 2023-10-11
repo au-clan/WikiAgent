@@ -43,16 +43,6 @@ def get_path_demonstrations(path_demonstrations_file='data/wikispeedia/wikispeed
         path_demonstrations.append({"src": row["src"], "tgt": row["tgt"], "output": effective_path(row["output"])})
     return path_demonstrations
 
-def get_paths_real_sample(n=100, is_path_finished = 1, paths_real_file='data/wikispeedia/wikispeedia_paths-and-graph/paths_real.tsv') -> list[dict]:
-    """
-    Gets a sample of paths from the paths_real.tsv file.
-    """
-    paths_real_df = pd.read_csv(paths_real_file, sep='\t')
-    paths_real_sample_df = paths_real_df.query(f'is_path_finished == {is_path_finished}').sample(n=n, random_state=42)[['src', 'tgt', 'path']]
-    paths_real_sample = []
-    for i, row in paths_real_sample_df.iterrows():
-        paths_real_sample.append({"src": row["src"], "tgt": row["tgt"], "output": row["path"]})
-    return paths_real_sample
 
 if __name__ == "__main__":
     path_demonstrations = get_path_demonstrations()

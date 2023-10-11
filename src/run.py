@@ -10,8 +10,7 @@ import asyncio
 from model_utils import SystemMessage, HumanMessage, AIMessage, BaseMessage
 from prompt_utils import get_navigate_entire_path_prompt
 from logger import get_logger
-from utils import printc, load_tsv_to_dict_list
-from navigate_links_only import get_path_demonstrations, get_paths_real_sample
+from utils import printc, load_tsv_to_dict_list, get_paths_real_sample
 from environments import LinkWikiEnviroment
 from agents import LinkClickAgent
 from batch_handler import BatchHandler
@@ -22,12 +21,9 @@ os.environ['HYDRA_FULL_ERROR'] = '1'
 
 async def main(cfg: DictConfig):
     start = time()
-    n_paths = 100
     model = instantiate(cfg.model)
     handler = BatchHandler(model=model, batch_size=cfg.model.batch_size)
-
-    #log.debug("Model instantiated.")
-    paths_real = get_paths_real_sample(n=n_paths)
+    paths_real = get_paths_real_sample(n=cfg.experiment.num_agents)
 
     agents = []
     envs = []

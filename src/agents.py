@@ -7,7 +7,7 @@ from attr import define, field
 import sys
 import yaml
 import asyncio
-from model_utils import SystemMessage, HumanMessage, AIMessage, AIMessagePrefix, BaseMessage
+from model_utils import SystemMessage, HumanMessage, AIMessage, AIMessagePrefix, BaseMessage, printc_prompt
 from environments import Environment
 from batch_handler import BatchHandler
 from utils import load_tsv_to_dict_list, printc, extract_json_from_response, wikify_article_name
@@ -26,6 +26,7 @@ class Agent:
 
     #features that are common to all agents
     use_feedback: bool = field(default=False)
+    multiturn_demonstrations: bool = field(default=False)
 
     # File with templates for the prompt and demonstration structure
     base_template_file: str = field(default="src/configs/agent/base_agent.yaml")
@@ -36,6 +37,7 @@ class Agent:
     demonstration_template: str = field(factory=str)
     agent_description: str = field(factory=str)
     user_template: str = field(factory=str)
+    assistant_prefix: str = field(factory=str)
 
     fewshot: int = field(default=5)
     demonstrations_file: str = field(default=None)
@@ -109,26 +111,37 @@ class Agent:
         args:
             feedback: str = None
                 Feedback from the user.
+                TODO: change run() to pass feedback to act(). Right now it retries
         """
         if not feedback:
-            system_message_content = self.prompt_template['system'].format(
-                agent_description=self.agent_description,
-                fewshot_demonstrations="\n".join(self.get_fewshot_demonstrations()),
-            )
-            system_message = SystemMessage(system_message_content)
+            if self.multiturn_demonstrations:
+                system_message_content = self.agent_description
+                demos_list = self._load_fewshot_demonstrations_data()
+                
+                prompt = [SystemMessage(system_message_content)]
+                for i in range(self.fewshot):
+                    prompt.append(HumanMessage(self.user_template.format(replace = demos_list[i])))         
+                    prompt.append(AIMessage(self.demonstration_template.format(replace = demos_list[i]))) 
+            else: # demos on system message 
+                system_message_content = self.prompt_template['system'].format(
+                    agent_description=self.agent_description,
+                    fewshot_demonstrations="\n".join(self.get_fewshot_demonstrations()),
+                )
+                system_message = SystemMessage(system_message_content)
+                prompt = [system_message]
             env_data = self.observe_environment()
 
             user_message_content = self.user_template.format(replace = env_data)
             user_message = HumanMessage(content = user_message_content)
-            assistant_prefix = AIMessagePrefix(self.prompt_template['assistant_prefix'])
+            assistant_prefix = AIMessagePrefix(self.assistant_prefix)
 
-            prompt = [system_message, user_message, assistant_prefix]
+            prompt.append(user_message); prompt.append(assistant_prefix)
             self.prompt = prompt
         else:
             # append bad response and feedback to the prompt
             self.prompt.append(AIMessage(self.response_history[-1]))
             self.prompt.append(HumanMessage(feedback))
-            self.prompt.append(AIMessagePrefix(self.prompt_template['assistant_prefix']))
+            self.prompt.append(AIMessagePrefix(self.assistant_prefix))
             prompt = self.prompt    
         return prompt
     
@@ -157,16 +170,16 @@ class Agent:
                 Feedback from the user. If not None, it means the agent made a mistake and needs to be corrected.
         """
         printc(f"Agent {self.agent_id} on page {self.environment.current_page}.", c="r")
-        start = time()
         prompt = self.build_prompt(feedback)
 
-        printc(f"Agent {self.agent_id} full prompt:\n", c="r")
-        for p in prompt:
-            printc(f"{p.role}: {p.content}\n", c="r")
+        printc(f"Agent {self.agent_id} says: {prompt[-2].content}")
+        # printc_prompt(∂isself.prompt, c='p')
+
         self.user_prompt_history.append(prompt[-2].content)
+        start = time()
         response = await self.handler.send_prompt(self.agent_id, prompt)
 
-        printc(f"Agent {self.agent_id} received response in {time() - start} seconds. Response:\n{response}")
+        printc(f"Agent {self.agent_id} received response. Time in queue: {time() - start} seconds. Response:\n{response}")
         self.response_history.append(response.content)
         actions = self.extract_actions(response)
         self.apply_actions(actions)
@@ -205,7 +218,7 @@ class WikiNavAgent(Agent):
         if force:
             return True
         else:
-            printc(f"is_finished: {self.environment.current_page} == {self.target_page} or {self.num_actions} >= {self.max_steps} or {self.num_errors} >= {self.max_errors}", c="r")
+            # printc(f"is_finished: {self.environment.current_page} == {self.target_page} or {self.num_actions} >= {self.max_steps} or {self.num_errors} >= {self.max_errors}", c="r")
             return self.environment.current_page == self.target_page or self.num_actions >= self.max_steps or self.num_errors >= self.max_errors
         
     def get_run_df(self):
@@ -239,7 +252,7 @@ class WikiNavAgent(Agent):
                     break
 
         if self.is_finished() and self.environment.current_page == self.target_page:
-            printc(f"Agent {self.agent_id} finished in {self.num_actions} actions.", c="r")
+            # printc(f"Agent {self.agent_id} finished in {self.num_actions} actions.", c="r")
             return True
         else:
             return False
