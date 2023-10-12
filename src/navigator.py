@@ -7,7 +7,8 @@ from utils import page2href, get_links
 
 
 class NavigatorHTML:
-    def __init__(self, encoding_model="cl100k_base", token_window=300, overlap=0.1):
+    def __init__(self, pages_path, encoding_model="cl100k_base", token_window=300, overlap=0.1):
+        self.pages_path = pages_path
         self.encoder = tiktoken.get_encoding(encoding_model)
         self.current_page = None
         self.text = None # Whole document text
@@ -29,7 +30,7 @@ class NavigatorHTML:
 
     def set_curr_doc(self, current_page):
         self.current_page = current_page
-        with open(page2href(current_page), "r", encoding='unicode_escape') as f:
+        with open(page2href(self.pages_path, current_page), "r", encoding='unicode_escape') as f:
                 doc = BeautifulSoup(f, "html.parser")
         body = doc.find("div", {"id" : "bodyContent"})
         if body == None:
