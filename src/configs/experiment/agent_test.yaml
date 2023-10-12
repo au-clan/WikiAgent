@@ -1,4 +1,4 @@
-num_agents: 1
+num_agents: 25
 src: The Beatles
 tgt: Flute
 debug_mode: False

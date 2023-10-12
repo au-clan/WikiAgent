@@ -8,7 +8,7 @@ from time import time
 import asyncio
 
 from model_utils import SystemMessage, HumanMessage, AIMessage, BaseMessage
-from prompt_utils import get_navigate_entire_path_prompt
+from WikiNav.deprecated.prompt_utils import get_navigate_entire_path_prompt
 from logger import get_logger
 from utils import printc, load_tsv_to_dict_list, get_paths_real_sample
 from environments import LinkWikiEnviroment

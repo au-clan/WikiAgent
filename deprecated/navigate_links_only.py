@@ -1,6 +1,6 @@
 import sys 
 sys.path.append("src/")
-from prompt_utils import wikify_article_name
+from WikiNav.deprecated.prompt_utils import wikify_article_name
 import pandas as pd
 from pprint import pprint
 from utils import load_links

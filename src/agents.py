@@ -45,7 +45,7 @@ class Agent:
 
     # data about a run
     num_actions: int = field(default=0)
-    num_errors: int = field(default=0)
+    num_tries: int = field(default=0)
     run_df = field(factory=pd.DataFrame)
     user_prompt_history = field(factory=list)
     response_history = field(factory=list)
@@ -207,20 +207,13 @@ class WikiNavAgent(Agent):
     use_backtrack: bool = field(default=False) # backtracking
 
     # finishing conditions
-    max_errors: int = field(default=2) # for feedback
+    max_tries: int = field(default=3) # retry same prompt
     max_steps: int = field(default=15)
 
 
     def set_target_page(self, target_page: str):
         self.target_page = wikify_article_name(target_page)
     
-    def is_finished(self, force=False):
-        if force:
-            return True
-        else:
-            # printc(f"is_finished: {self.environment.current_page} == {self.target_page} or {self.num_actions} >= {self.max_steps} or {self.num_errors} >= {self.max_errors}", c="r")
-            return self.environment.current_page == self.target_page or self.num_actions >= self.max_steps or self.num_errors >= self.max_errors
-        
     def get_run_df(self):
         df = pd.DataFrame({
             'agent_id': self.agent_id,
@@ -230,22 +223,27 @@ class WikiNavAgent(Agent):
             'path': ";".join(self.environment.page_history),
             'fewshot': self.fewshot,
             'num_actions': self.num_actions,
-            'num_errors': self.num_errors,
+            'num_errors': self.num_tries,
+            'reached_goal': self.environment.current_page == self.target_page,
             'user_prompt_history': [self.user_prompt_history],
             'response_history': [self.response_history],
         })
         return df
     
+    def is_finished(self):
+        printc(f"is_finished: {self.environment.current_page} == {self.target_page} or {self.num_actions} >= {self.max_steps} or {self.num_tries} >= {self.max_tries}", c="r")
+        return self.environment.current_page == self.target_page or self.num_actions >= self.max_steps or self.num_tries >= self.max_tries
+        
     async def run(self):
         """ Run the agent until game is over or error."""
         while not self.is_finished():
             try:
                 await self.act()
                 self.num_actions += 1
-                self.num_errors = 0
+                self.num_tries = 0
             except Exception as e:
                 printc(f"Error in agent {self.agent_id}: {e}", c="r")
-                self.num_errors += 1
+                self.num_tries += 1
                 if self.use_retry:
                     pass
                 else:
