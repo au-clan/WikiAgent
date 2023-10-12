@@ -1,5 +1,5 @@
 # Getting the Relevant Dataset
-To obtain the necessary dataset for your project, follow these steps:
+To obtain the necessary dataset for the project, please follow these steps:
 
 ## 1. Download the Dataset:
 

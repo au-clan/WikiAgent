@@ -1,5 +1,8 @@
 outputs/
 logs/
 *.pyc
+*.DS_Store
 data/wikispeedia/
+data/wikispeedia_paths-and-graph/
+data/wpcd/
 nohup.out
