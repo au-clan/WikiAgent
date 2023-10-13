@@ -23,6 +23,7 @@ class Agent:
     environment: Environment = field(default=None)
     handler: BatchHandler = field(default=None)
     agent_id: int = field(default=None)
+    source_page: str = field(default=None)
 
     #features that are common to all agents
     use_feedback: bool = field(default=False)
@@ -75,6 +76,7 @@ class Agent:
 
     def set_environment(self, environment: Environment):
         self.environment = environment
+        self.source_page = environment.current_page
     
     def set_handler(self, handler: BatchHandler):
         self.handler = handler
@@ -85,9 +87,9 @@ class Agent:
     def get_fewshot_demonstrations(self) -> list[str]:
         demos_list = self._load_fewshot_demonstrations_data()
         fewshot_demonstrations = []
-        for i in range(self.fewshot):
-            user_template_filled = self.user_template.format(replace = demos_list[i])
-            fewshot_demonstrations.append(self.demonstration_template.format(user_template = user_template_filled, replace = demos_list[i]))
+        for demo in demos_list:
+            user_template_filled = self.user_template.format(replace = demo)
+            fewshot_demonstrations.append(self.demonstration_template.format(user_template = user_template_filled, replace = demo))
         return fewshot_demonstrations
 
     def _load_fewshot_demonstrations_data(self) -> list[dict]:
@@ -119,9 +121,9 @@ class Agent:
                 demos_list = self._load_fewshot_demonstrations_data()
                 
                 prompt = [SystemMessage(system_message_content)]
-                for i in range(self.fewshot):
-                    prompt.append(HumanMessage(self.user_template.format(replace = demos_list[i])))         
-                    prompt.append(AIMessage(self.demonstration_template.format(replace = demos_list[i]))) 
+                for demo in demos_list:
+                    prompt.append(HumanMessage(self.user_template.format(replace = demo)))         
+                    prompt.append(AIMessage(self.demonstration_template.format(replace = demo))) 
             else: # demos on system message 
                 system_message_content = self.prompt_template['system'].format(
                     agent_description=self.agent_description,
@@ -173,7 +175,7 @@ class Agent:
         prompt = self.build_prompt(feedback)
 
         printc(f"Agent {self.agent_id} says: {prompt[-2].content}")
-        # printc_prompt(∂isself.prompt, c='p')
+        printc_prompt(self.prompt, c='p')
 
         self.user_prompt_history.append(prompt[-2].content)
         start = time()
@@ -208,8 +210,7 @@ class WikiNavAgent(Agent):
 
     # finishing conditions
     max_tries: int = field(default=3) # retry same prompt
-    max_steps: int = field(default=15)
-
+    max_actions: int = field(default=15)
 
     def set_target_page(self, target_page: str):
         self.target_page = wikify_article_name(target_page)
@@ -218,7 +219,7 @@ class WikiNavAgent(Agent):
         df = pd.DataFrame({
             'agent_id': self.agent_id,
             'agent_type': self.__class__.__name__,
-            'src': self.environment.page_history[0],
+            'src': self.source_page,
             'tgt': self.target_page,
             'path': ";".join(self.environment.page_history),
             'fewshot': self.fewshot,
@@ -231,8 +232,8 @@ class WikiNavAgent(Agent):
         return df
     
     def is_finished(self):
-        printc(f"is_finished: {self.environment.current_page} == {self.target_page} or {self.num_actions} >= {self.max_steps} or {self.num_tries} >= {self.max_tries}", c="r")
-        return self.environment.current_page == self.target_page or self.num_actions >= self.max_steps or self.num_tries >= self.max_tries
+        printc(f"is_finished: {self.environment.current_page} == {self.target_page} or {self.num_actions} >= {self.max_actions} or {self.num_tries} >= {self.max_tries}", c="r")
+        return self.environment.current_page == self.target_page or self.num_actions >= self.max_actions or self.num_tries >= self.max_tries
         
     async def run(self):
         """ Run the agent until game is over or error."""
@@ -262,25 +263,28 @@ class LinkClickAgent(WikiNavAgent):
     Agent that clicks knowing only the list of links in a certain page.
     """
     template_file: str = field(default="src/configs/agent/link_click_agent.yaml")
-    fewshot_demonstrations_file: str = field(default="data/wikispeedia/wikispeedia_paths-and-graph/click_demonstrations.tsv")
-    
-    def _load_fewshot_demonstrations_data(self) -> list[dict]:
-        dicts = load_tsv_to_dict_list(self.fewshot_demonstrations_file)
-        #rename some keys
-        for d in dicts:
-            d['links'] = d.pop('cands')
-            d['click'] = d.pop('output')
+    demonstrations_file: str = field(default="data/wikispeedia/wikispeedia_paths-and-graph/fewshot_click_demonstrations.tsv")
+    fewshot_click_types: str = field(default="all_no_back")
 
-            d['src'] = d['src']
-            d['tgt'] = d['tgt']
-            d['links'] = ';'.join([link for link in d['links'].split(';')])
-            d['click'] = d['click']
-        return dicts
+
+    def _load_fewshot_demonstrations_data(self) -> list[dict]:
+        demos_df = pd.read_csv(self.demonstrations_file, sep='\t').fillna('NA')
+        dicts = []
+        if self.fewshot_click_types == 'first-only':
+            demos_df = demos_df[demos_df['click_type'] == 'first']
+            dicts = [row.to_dict() for _, row in demos_df.iterrows()]
+        elif self.fewshot_click_types == 'all_no_back':
+            demos_df = demos_df[demos_df['click_type'] != 'back']
+            dicts = [row.to_dict() for _, row in demos_df.iterrows()]
+        elif self.fewshot_click_types == 'all':
+            dicts = [row.to_dict() for _, row in demos_df.iterrows()]
+        return dicts[:self.fewshot]
 
     def observe_environment(self):
         observed_data = {
-            "src": self.environment.current_page,
+            "src": self.source_page,
             "tgt": self.target_page,
+            "cur": self.environment.current_page,
             "links": ";".join([link for link in self.environment.links]),
         }
         return observed_data
@@ -292,7 +296,7 @@ class LinkClickAgent(WikiNavAgent):
         try:
             self.environment.change_page(link)
             return True
-        except AssertionError as e:
+        except Exception as e:
             raise e
         
 
@@ -309,5 +313,55 @@ class LinkClickAgent(WikiNavAgent):
                 self.click(actions['next_page'])
             except Exception as e:
                 raise e
+
+@define
+class LinkClickDFSAgent(LinkClickAgent):
+    """
+    This class allows backtracking and excludes previously visited pages from candidates.
+    Makes playing Wikispeedia similar to a DFS.
+    """
+    use_back: bool = field(default=True)
+    visited_pages: list[str] = field(factory=list)
+
+    def __attrs_post_init__(self):
+        self.fewshot_click_types = "all" if self.use_back else "all_no_back"
+        return super().__attrs_post_init__()
+
+    def set_environment(self, environment: Environment):
+        self.visited_pages.append(environment.current_page)
+        return super().set_environment(environment)
+
+    def observe_environment(self):
+        self.environment.remove_pages_from_links(self.visited_pages)
+        return super().observe_environment()
+    
+    def back(self):
+        """
+        Backtracks to the previous page.
+        """
+        try:
+            self.environment.back()
+            return True
+        except Exception as e:
+            raise e
         
+    def apply_actions(self, actions: dict):
+        """
+        Apply actions from the model.
+        """
+        if 'next_page' not in actions:
+            raise AssertionError(f"Invalid action: {actions}")
+        else:
+            if self.use_back and actions['next_page'] == "NA":
+                try:
+                    self.back()
+                except Exception as e:
+                    raise e
+            else:
+                try:
+                    self.click(actions['next_page'])
+                    self.visited_pages.append(self.environment.current_page)
+                except Exception as e:
+                    raise e
+    
 
