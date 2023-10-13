@@ -39,6 +39,9 @@ def main ():
                 done = int(50 * dl / total_length)
                 sys.stdout.write("\r[%s%s]" % ('=' * done, ' ' * (50-done)) )    
                 sys.stdout.flush()
+    
+    print("\nThe data has been downloaded successfully and can be found in the data folder!")
+    print("Please extract the data from the tar.gz without changing their names\n")
 
 if __name__ == '__main__':
     main()

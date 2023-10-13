@@ -145,20 +145,55 @@ def fix_page_encoding(page):
     return page.replace("%25", "%")
 
 def href2page(href):
-    page = href[11:-4]
-    return fix_page_encoding(page)
+    """
+    Returns the page name from a href.
+    Examples
+        - "A/B.htm" -> "B", where A can be anything
+        - "../data/wpcd/wp/u/United_states.htm" -> "United_states"
+    Exceptions
+        - "#subsection" -> ""
+    """
+    pattern = r'[^/]+/([^/]+)\.htm'
+    page = re.search(pattern, href)
 
-def page2href(page):
+    if page:
+        word = page.group(1)
+    elif href[0]=="#":
+        word=""
+    else:
+        print("No such page found found : {} from {}".format(page, href))
+    return fix_page_encoding(word)
+
+def page2href(pages_path, page):
+    """
+    Given the folder where the pages are stored and the page name, returns the href.
+    """
     initial = page[0].lower()
-    href = "../data/wpcd/wp/{}/{}.htm".format(initial, page)
+    href = pages_path + "{}/{}.htm".format(initial, page)
     return href
 
 def get_links(input_text):
+    """
+    Returns all link in a string. The links have to be formatted as [*link*]
+    Inputs
+        - input_text [str]: text to extract links from
+    Outputs
+        - matches [list(str)]: list of links
+    """
     pattern = r'\[\*(.*?)\*\]'
     matches = re.findall(pattern, input_text)
     return matches
 
 def format_path(path):
+    """
+    Formats a path from a string to a list
+    Inputs
+        - path [str]: path in string format
+    Outputs
+        - path [list(str)]: path in list format
+    Example
+        - "A;B;C" -> ["A", "B", "C"]
+    """
     if isinstance(path, str):   
         path = path.split(";")
     return path

@@ -4,5 +4,8 @@ logs/
 *.tsv
 *.csv
 system_fewshot_prompt.txt
+*.DS_Store
 data/wikispeedia/
+data/wikispeedia_paths-and-graph/
+data/wpcd/
 nohup.out
