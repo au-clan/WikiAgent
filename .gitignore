@@ -1,5 +1,7 @@
 outputs/
 logs/
 *.pyc
+*.tsv
+*.csv
 data/wikispeedia/
 nohup.out
