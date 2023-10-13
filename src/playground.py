@@ -7,11 +7,9 @@ from pprint import pprint
 from time import time
 import asyncio
 
-from model_utils import SystemMessage, HumanMessage, AIMessage, AIMessagePrefix, BaseMessage
-from prompt_utils import get_navigate_entire_path_prompt
+from model_utils import SystemMessage, HumanMessage, AIMessage, AIMessagePrefix, BaseMessage, printc_prompt
 from logger import get_logger
 from utils import printc, load_tsv_to_dict_list
-from navigate_links_only import get_path_demonstrations, get_paths_real_sample
 from environments import LinkWikiEnviroment
 from agents import LinkClickAgent
 from batch_handler import BatchHandler
@@ -75,10 +73,35 @@ def llama_multiturn_prompt():
     messages = [m.prepare_for_generation() for m in message]
     print(preprocess_llama_chat(messages))
 
+async def game_environment(cfg: DictConfig):
+    env = LinkWikiEnviroment(cfg.experiment.src)
+    agent = instantiate(cfg.agent)
+    agent.set_environment(env)
+    agent.set_target_page(cfg.experiment.tgt)
+    agent.set_agent_id(0)
+
+    # for debugging, i want to manually step through the environment
+    # and choose the next action
+    while True:
+        env_data = agent.observe_environment()
+        printc(f"Current page: {env_data['src']}", c="y")
+        printc(f"\nLinks: {env_data['links']}", c="b")
+        printc(f"\nContent: {env.content}", c="g")
+        printc(f"\nPage history: {env.page_history}", c="r")
+        printc(f"\nContent history: {env.content_history}", c="r")
+        printc(f"Agent prompt:", c="y")
+        printc_prompt(agent.build_prompt())
+
+        next_page = input("Next page: ")
+
+        agent.apply_actions({"next_page": next_page})
+        print("\n\n")
+        if next_page == "exit":
+            break
+
 async def test_stuff(cfg: DictConfig):
     env = LinkWikiEnviroment(cfg.experiment.src)
     model = instantiate(cfg.model) if not cfg.experiment.debug_mode else None
-    print("Stop token:", model.stop_token)
     handler = BatchHandler(batch_size=1, debug_mode=cfg.experiment.debug_mode, model=model)
     agent = instantiate(cfg.agent)
     agent.set_environment(env)

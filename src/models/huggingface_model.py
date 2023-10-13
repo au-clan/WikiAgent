@@ -63,6 +63,7 @@ class HuggingFaceModel(ChatModel):
                         for data in data]
             concat_msges = [preprocess_llama_chat(msg) for msg in msges]
             self.raw_prompt = concat_msges
+
             # return self.tokenizer(concat_msges)
             return concat_msges
 
@@ -94,6 +95,7 @@ class HuggingFaceModel(ChatModel):
                                  pad_token_id=self.tokenizer.eos_token_id,
                                  do_sample=self.do_sample, 
                                  top_p=self.top_p,
+                                 temperature=self.temperature,
                                  stopping_criteria=stopping_criteria)#[:, data.shape[1]:]
         # outputs = self.model.generate(data,
         #                               max_new_tokens=self.context_max_tokens,
@@ -139,7 +141,6 @@ class HuggingFaceModel(ChatModel):
         self.generator = pipeline("text-generation", model=self.model_name,
                                                 tokenizer=self.model_name,
                                                 batch_size=self.batch_size, 
-                                                temperature=self.temperature,
                                                 device=0 if self.device == "cuda" else -1)
         self.tokenizer = self.generator.tokenizer
         self.generator.tokenizer.pad_token_id = self.tokenizer.eos_token_id

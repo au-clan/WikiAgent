@@ -8,7 +8,6 @@ from time import time
 import asyncio
 
 from model_utils import SystemMessage, HumanMessage, AIMessage, BaseMessage
-from WikiNav.deprecated.prompt_utils import get_navigate_entire_path_prompt
 from logger import get_logger
 from utils import printc, load_tsv_to_dict_list, get_paths_real_sample
 from environments import LinkWikiEnviroment
@@ -69,3 +68,4 @@ if __name__ == "__main__":
     hydra_wrapper(main)
 
 #nohup python src/run.py &
+#nohup python src/run.py --multirun agent=link_click_agent,multiturn_demo_link_click_agent experiment.num_agents=50 model.temperature=0.8 run_name=multirun_demo_comparison &

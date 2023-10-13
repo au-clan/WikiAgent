@@ -2,7 +2,7 @@ defaults:
   - _self_
   - experiment: agent_test
   - model: llama_2_7b_chat_hf
-  - agent: multiturn_demo_link_click_agent
+  - agent: link_click_dfs_agent
   - hydra: inference
 
 # Directories
