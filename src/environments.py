@@ -67,6 +67,26 @@ class WikiEnvironment(Environment):
         self._set_content()
         self._set_links()
     
+    def remove_pages_from_links(self, pages: list[str]):
+        """
+        Removes pages from the candidate links.
+        """
+        self.links = [link for link in self.links if link not in pages]
+    
+    def back(self):
+        """
+        Return to previous page.
+        """
+        if len(self.page_history) > 1:
+            self.page_history.pop()
+            self.content_history.pop()
+            self._set_current_page(self.page_history[-1])
+            self._set_content()
+            self._set_links()
+        else:
+            raise Exception("Cannot go back any further.")
+
+    
 @define
 class LinkWikiEnviroment(WikiEnvironment):
     """
