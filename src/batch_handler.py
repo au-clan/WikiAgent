@@ -46,7 +46,7 @@ class BatchHandler:
                 events.append((agent_id, event))
 
             if self.debug_mode:
-                outputs = [AIMessage(content='{"click": "United States"}') for _ in batch]
+                outputs = [AIMessage(content='{"click": "Tin"}') for _ in batch]
             else:
                 printc("Sending batch to model...", c="y")
                 outputs = self.model(batch)
