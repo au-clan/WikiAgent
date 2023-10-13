@@ -3,5 +3,6 @@ logs/
 *.pyc
 *.tsv
 *.csv
+system_fewshot_prompt.txt
 data/wikispeedia/
 nohup.out
