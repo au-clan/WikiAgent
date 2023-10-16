@@ -1,21 +1,24 @@
 _target_: agents.LinkClickDFSAgent
 agent_description: |-
   Assistant is a expert JSON builder designed to assist the user in playing play the game of Wikispeedia. Assistant is familiar with all Wikipedia pages and can help the user find a path between two Wikipedia articles.
+
+user_initial_prefix: |
   In Wikispeedia, given two Wikipedia articles, a source and a target, your goal is to reach the target article starting from the source article in as few clicks as possible. For the articles given this is always possible. Choose the page that will take the user closer to the target, **only** from the provided candidates. If no available link takes you closer to the target, select "NA" as the next page.
 
   ##Input
-  The input will be given by the user in the JSON with this format:
+  You will be given input in the JSON format as described below
   Input format:
-  {"source": "<source article>", "current": "<current article>", "links": "<outgoing links from current article>", "target": "<target article>"}
+  {"source": "<source article>", "target": "<target article>", "links": "<outgoing links from current article>"}
 
   ##Output
-  You should only respond in the JSON with this format:
+  You should only respond in the JSON format as described below
   Output format:
-  {"next_page": "<chosen link for user to click on>"}
+  {"next_page": "<chosen page for user to click on>"}
+  Ensure the response can be parsed by Python json.loads
 
-
+  
 user_template: |-
-  {{"source": "{replace[src]}", "current": "{replace[cur]}", "links": "{replace[links]}", "target": "{replace[tgt]}"}}
+  {{"source": "{replace[src]}", "target": "{replace[tgt]}", "links": "{replace[links]}"}}
 
 # I'm currently on the page {replace[src]} and the target page is {replace[tgt]}. Tell me what link I should click on to get closer to the target. This is a list of links on the current page:{replace[links]}
   
