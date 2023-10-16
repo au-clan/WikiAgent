@@ -27,7 +27,7 @@ class Agent:
 
     #features that are common to all agents
     use_feedback: bool = field(default=False)
-    multiturn_demonstrations: bool = field(default=False)
+    multiturn_demonstrations: bool = field(default=True)
 
     # File with templates for the prompt and demonstration structure
     base_template_file: str = field(default="src/configs/agent/base_agent.yaml")
@@ -37,6 +37,7 @@ class Agent:
     prompt_template: dict = field(factory=dict)
     demonstration_template: str = field(factory=str)
     agent_description: str = field(factory=str)
+    user_initial_prefix: str = field(factory=str)
     user_template: str = field(factory=str)
     assistant_prefix: str = field(factory=str)
 
@@ -76,7 +77,6 @@ class Agent:
 
     def set_environment(self, environment: Environment):
         self.environment = environment
-        self.source_page = environment.current_page
     
     def set_handler(self, handler: BatchHandler):
         self.handler = handler
@@ -118,15 +118,24 @@ class Agent:
         if not feedback:
             if self.multiturn_demonstrations:
                 system_message_content = self.agent_description
+                if self.use_feedback:
+                    system_message_content += " " + self.prompt_template['feedback_prefix']
                 demos_list = self._load_fewshot_demonstrations_data()
                 
                 prompt = [SystemMessage(system_message_content)]
-                for demo in demos_list:
-                    prompt.append(HumanMessage(self.user_template.format(replace = demo)))         
-                    prompt.append(AIMessage(self.demonstration_template.format(replace = demo))) 
+                for i,demo in enumerate(demos_list):
+                    user_message_content = ""
+                    ai_message_content = ""
+                    if i==0:
+                        user_message_content = self.user_initial_prefix
+                    user_message_content += self.user_template.format(replace = demo)
+                    ai_message_content = self.demonstration_template.format(replace = demo)
+                    prompt.append(HumanMessage(user_message_content))
+                    prompt.append(AIMessage(ai_message_content))
             else: # demos on system message 
                 system_message_content = self.prompt_template['system'].format(
                     agent_description=self.agent_description,
+                    user_initial_prefix=self.user_initial_prefix,
                     fewshot_demonstrations="\n".join(self.get_fewshot_demonstrations()),
                 )
                 system_message = SystemMessage(system_message_content)
@@ -231,15 +240,23 @@ class WikiNavAgent(Agent):
         })
         return df
     
-    def is_finished(self):
-        printc(f"is_finished: {self.environment.current_page} == {self.target_page} or {self.num_actions} >= {self.max_actions} or {self.num_tries} >= {self.max_tries}", c="r")
-        return self.environment.current_page == self.target_page or self.num_actions >= self.max_actions or self.num_tries >= self.max_tries
+    def is_finished(self) -> (bool, str):
+        if self.target_page in self.environment.links:
+            return True, "success"
+        elif self.num_actions >= self.max_actions:
+            return True, "max_actions"
+        elif self.num_tries >= self.max_tries:
+            return True, "max_tries"
+        else:
+            return False, "none"
         
     async def run(self):
         """ Run the agent until game is over or error."""
-        while not self.is_finished():
+        feedback = None
+        while not self.is_finished()[0]:
             try:
-                await self.act()
+                await self.act(feedback=feedback)
+                feedback = None
                 self.num_actions += 1
                 self.num_tries = 0
             except Exception as e:
@@ -247,15 +264,17 @@ class WikiNavAgent(Agent):
                 self.num_tries += 1
                 if self.use_retry:
                     pass
+                    feedback = str(e)
                 else:
                     break
 
-        if self.is_finished() and self.environment.current_page == self.target_page:
-            # printc(f"Agent {self.agent_id} finished in {self.num_actions} actions.", c="r")
+        finished, reason = self.is_finished()
+        if reason=='success':
+            printc(f"Agent {self.agent_id} reached the target page {self.target_page} in {self.num_actions} actions.", c="g")
             return True
         else:
+            printc(f"Agent {self.agent_id} failed to reach the target page {self.target_page} because of {reason}.", c="r")
             return False
-
 
 @define
 class LinkClickAgent(WikiNavAgent):
@@ -264,11 +283,19 @@ class LinkClickAgent(WikiNavAgent):
     """
     template_file: str = field(default="src/configs/agent/link_click_agent.yaml")
     demonstrations_file: str = field(default="data/wikispeedia/wikispeedia_paths-and-graph/fewshot_click_demonstrations.tsv")
-    fewshot_click_types: str = field(default="all_no_back")
+    fewshot_click_types: str = field(default=None)
 
+    def __attrs_post_init__(self):
+        if not self.fewshot_click_types:
+            # this makes it so we can use None as the default value for all subclasses
+            self.fewshot_click_types = 'all_no_back'
 
     def _load_fewshot_demonstrations_data(self) -> list[dict]:
         demos_df = pd.read_csv(self.demonstrations_file, sep='\t').fillna('NA')
+        # remove src column
+        demos_df = demos_df.drop(columns=['src'])
+        #rename cur column to src
+        demos_df = demos_df.rename(columns={'cur': 'src'})
         dicts = []
         if self.fewshot_click_types == 'first-only':
             demos_df = demos_df[demos_df['click_type'] == 'first']
@@ -282,9 +309,8 @@ class LinkClickAgent(WikiNavAgent):
 
     def observe_environment(self):
         observed_data = {
-            "src": self.source_page,
+            "src": self.environment.current_page,
             "tgt": self.target_page,
-            "cur": self.environment.current_page,
             "links": ";".join([link for link in self.environment.links]),
         }
         return observed_data
@@ -324,7 +350,8 @@ class LinkClickDFSAgent(LinkClickAgent):
     visited_pages: list[str] = field(factory=list)
 
     def __attrs_post_init__(self):
-        self.fewshot_click_types = "all" if self.use_back else "all_no_back"
+        if not self.fewshot_click_types:
+            self.fewshot_click_types = 'all_no_back' if not self.use_back else 'all'
         return super().__attrs_post_init__()
 
     def set_environment(self, environment: Environment):

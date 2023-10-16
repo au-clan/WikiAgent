@@ -82,7 +82,7 @@ async def game_environment(cfg: DictConfig):
 
     # for debugging, i want to manually step through the environment
     # and choose the next action
-    while True:
+    while not agent.is_finished()[0]:
         env_data = agent.observe_environment()
         printc(f"Current page: {env_data['src']}", c="y")
         printc(f"\nLinks: {env_data['links']}", c="b")
@@ -94,7 +94,12 @@ async def game_environment(cfg: DictConfig):
 
         next_page = input("Next page: ")
 
-        agent.apply_actions({"next_page": next_page})
+        try:
+            agent.apply_actions({"next_page": next_page})
+        except Exception as e:
+            printc(f"Error: {e}", c="r")
+            continue
+        printc(f"agent.is_finished: {agent.is_finished()}", c='y')
         print("\n\n")
         if next_page == "exit":
             break
@@ -129,4 +134,4 @@ def hydra_wrapper(func):
 
 if __name__ == "__main__":
     #llama_multiturn_prompt()
-    hydra_wrapper(test_stuff)
+    hydra_wrapper(game_environment)
