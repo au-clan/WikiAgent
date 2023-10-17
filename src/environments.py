@@ -14,7 +14,8 @@ class Environment:
     """
     current_page = field(factory=str)
     content = field(default=None)
-    page_history = field(factory=list)
+    page_history = field(factory=list) #this is basically the effective history
+    full_page_history = field(factory=list) #this includes backtracks
     content_history = field(factory=list)
     links = field(factory=list)
     
@@ -49,6 +50,7 @@ class WikiEnvironment(Environment):
     def __attrs_post_init__(self):
         self.current_page = wikify_article_name(self.current_page)
         self.page_history.append(self.current_page)
+        self.full_page_history.append(self.current_page)
         self._set_content()
         self.content_history.append(self.content)
         self._set_links()
@@ -62,6 +64,7 @@ class WikiEnvironment(Environment):
         assert wikified_new_page in self.links, f"Link {wikified_new_page} not on current page. Try a different page."
 
         self.page_history.append(new_page)
+        self.full_page_history.append(new_page)
         self.content_history.append(self.content)
         self._set_current_page(wikified_new_page)
         self._set_content()
@@ -78,6 +81,7 @@ class WikiEnvironment(Environment):
         Return to previous page.
         """
         if len(self.page_history) > 1:
+            self.full_page_history.append("<")
             self.page_history.pop()
             self.content_history.pop()
             self._set_current_page(self.page_history[-1])

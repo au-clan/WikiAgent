@@ -22,7 +22,7 @@ async def main(cfg: DictConfig):
     start = time()
     model = instantiate(cfg.model)
     handler = BatchHandler(model=model, batch_size=cfg.model.batch_size)
-    paths_real = get_paths_real_sample(n=cfg.experiment.num_agents)
+    paths_real = get_paths_real_sample(n=cfg.experiment.num_agents, paths_real_file=cfg.paths_real_file)
 
     agents = []
     envs = []
@@ -68,4 +68,4 @@ if __name__ == "__main__":
     hydra_wrapper(main)
 
 #nohup python src/run.py &
-#nohup python src/run.py --multirun agent=link_click_agent,multiturn_demo_link_click_agent experiment.num_agents=50 model.temperature=0.8 run_name=multirun_demo_comparison &
+#nohup python src/run.py --multirun agent=link_click_agent,link_click_dfs_agent,link_click_dfs_back_agent agent.fewshot=0,5 run_name=agent_sweep &

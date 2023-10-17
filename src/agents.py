@@ -4,7 +4,7 @@
 # - Template = a string with placeholders for the agent to fill in
 import attr
 from attr import define, field
-import sys
+import os
 import yaml
 import asyncio
 from model_utils import SystemMessage, HumanMessage, AIMessage, AIMessagePrefix, BaseMessage, printc_prompt
@@ -52,6 +52,7 @@ class Agent:
     user_prompt_history = field(factory=list)
     response_history = field(factory=list)
     action_history = field(factory=list)
+    agent_runs_file: str = field(default=None) #should be hydra
 
 
     def __attrs_post_init__(self):
@@ -175,11 +176,11 @@ class Agent:
         """ Applies the actions to the environment."""
         raise NotImplementedError("Subclasses must implement the apply_actions method.")
 
-    def update_run_df(self):
+    def update_runs_df(self):
         """ Depends on the agent type."""
         pass
 
-    async def act(self, feedback: str = None):
+    async def act(self, feedback: str = None, debug=False):
         """ One turn of the agent. -Build prompt; Send prompt to model; Apply actions
         args:
             feedback: str = None
@@ -193,7 +194,11 @@ class Agent:
 
         self.user_prompt_history.append(prompt[-2].content)
         start = time()
-        response = await self.handler.send_prompt(self.agent_id, prompt)
+        if not debug:
+            response = await self.handler.send_prompt(self.agent_id, prompt)
+        else:
+            input_ = input("Response from model:")
+            response = AIMessage(input_)
 
         printc(f"Agent {self.agent_id} received response. Time in queue: {time() - start} seconds. Response:\n{response}")
         self.response_history.append(response.content)
@@ -241,7 +246,7 @@ class WikiNavAgent(Agent):
             'agent_type': self.__class__.__name__,
             'src': self.source_page,
             'tgt': self.target_page,
-            'path': ";".join(self.environment.page_history),
+            'effective_path': ";".join(self.environment.page_history),
             'visited_pages': ";".join(self.visited_pages),
             'fewshot': self.fewshot,
             'num_actions': self.num_actions,
@@ -253,6 +258,36 @@ class WikiNavAgent(Agent):
         })
         return df
     
+    def update_runs_df(self):
+        row = {
+            'agent_id': self.agent_id,
+            'agent_type': self.__class__.__name__,
+            'cur': self.environment.current_page,
+            'src': self.source_page,
+            'tgt': self.target_page,
+            'response': self.response_history[-1],
+            'action': self.action_history[-1],
+            'num_actions': self.num_actions,
+            'num_tries': self.num_tries,
+            'is_finished': self.is_finished()[0],
+            'is_finished_reason': self.is_finished()[1],
+            'path_so_far': ";".join(self.environment.full_page_history),
+            'prompt': self.prompt,
+            'user_prompt': self.user_prompt_history[-1],
+        }
+        self.run_df = pd.concat([self.run_df, pd.DataFrame([row])], ignore_index=True)
+
+        # check if all_runs_df file exists
+        if os.path.isfile(self.agent_runs_file):
+            all_runs_df = pd.read_csv(self.agent_runs_file, sep="\t")
+        else:
+            all_runs_df = pd.DataFrame()
+
+        #concat new row to all_runs_df
+        all_runs_df = pd.concat([all_runs_df, pd.DataFrame([row])], ignore_index=True)
+        all_runs_df.to_csv(self.agent_runs_file, sep="\t", index=False)
+    
+    
     def is_finished(self) -> (bool, str):
         if self.target_page in self.environment.links:
             return True, "success"
@@ -263,12 +298,12 @@ class WikiNavAgent(Agent):
         else:
             return False, "none"
         
-    async def run(self):
+    async def run(self, debug=False):
         """ Run the agent until game is over or error."""
         feedback = None
         while not self.is_finished()[0]:
             try:
-                await self.act(feedback=feedback)
+                await self.act(feedback=feedback, debug=debug)
                 feedback = None
                 self.num_actions += 1
                 self.num_tries = 0
@@ -280,7 +315,9 @@ class WikiNavAgent(Agent):
                     pass
                     feedback = str(e) if self.use_feedback else None
                 else:
+                    self.update_runs_df()
                     break
+            self.update_runs_df()
 
         finished, reason = self.is_finished()
         if reason=='success':

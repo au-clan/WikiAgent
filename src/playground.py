@@ -106,7 +106,8 @@ async def game_environment(cfg: DictConfig):
 
 async def test_stuff(cfg: DictConfig):
     env = LinkWikiEnviroment(cfg.experiment.src)
-    model = instantiate(cfg.model) if not cfg.experiment.debug_mode else None
+    model=None
+    #model = instantiate(cfg.model) if not cfg.experiment.debug_mode else None
     handler = BatchHandler(batch_size=1, debug_mode=cfg.experiment.debug_mode, model=model)
     agent = instantiate(cfg.agent)
     agent.set_environment(env)
@@ -114,13 +115,13 @@ async def test_stuff(cfg: DictConfig):
     agent.set_handler(handler)
     agent.set_agent_id(0)
 
-    agent_tasks = [asyncio.create_task(agent.run())]
+    agent_tasks = [asyncio.create_task(agent.run(debug=True))]
     batch_processor = asyncio.create_task(handler.process_batch())
     
     try:
         results = await asyncio.gather(*agent_tasks, batch_processor, return_exceptions=False)
         batch_processor.cancel()
-        agent.get_run_df().to_csv("agent_run_df.tsv", sep="\t", index=False)
+        agent.get_run_df().to_csv(os.path.join(cfg.output_dir, "agent_run.tsv"), sep="\t", index=False)
         for result in results:
             print("result:",result)
     except Exception as e:
@@ -134,4 +135,4 @@ def hydra_wrapper(func):
 
 if __name__ == "__main__":
     #llama_multiturn_prompt()
-    hydra_wrapper(game_environment)
+    hydra_wrapper(test_stuff)
