@@ -276,7 +276,7 @@ class WikiNavAgent(Agent):
             'user_prompt': self.user_prompt_history[-1],
         }
         self.run_df = pd.concat([self.run_df, pd.DataFrame([row])], ignore_index=True)
-        print(self.run_df)
+
         # check if all_runs_df file exists
         if os.path.isfile(self.agent_runs_file):
             all_runs_df = pd.read_csv(self.agent_runs_file, sep="\t")

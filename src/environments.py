@@ -63,8 +63,8 @@ class WikiEnvironment(Environment):
 
         assert wikified_new_page in self.links, f"Link {wikified_new_page} not on current page. Try a different page."
 
-        self.page_history.append(new_page)
-        self.full_page_history.append(new_page)
+        self.page_history.append(wikified_new_page)
+        self.full_page_history.append(wikified_new_page)
         self.content_history.append(self.content)
         self._set_current_page(wikified_new_page)
         self._set_content()

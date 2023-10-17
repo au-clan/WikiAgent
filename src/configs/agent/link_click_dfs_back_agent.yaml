@@ -29,6 +29,7 @@ demonstration_template: |-
   {{"next_page": "{replace[click]}"}}
 
 demonstrations_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/fewshot_click_demonstrations.tsv
+agent_runs_file: ${agent_runs_file}
 
 fewshot: 5
 use_retry: True
