@@ -51,6 +51,7 @@ class Agent:
     run_df = field(factory=pd.DataFrame)
     user_prompt_history = field(factory=list)
     response_history = field(factory=list)
+    action_history = field(factory=list)
 
 
     def __attrs_post_init__(self):
@@ -77,6 +78,7 @@ class Agent:
 
     def set_environment(self, environment: Environment):
         self.environment = environment
+        self.source_page = environment.current_page
     
     def set_handler(self, handler: BatchHandler):
         self.handler = handler
@@ -113,7 +115,7 @@ class Agent:
         args:
             feedback: str = None
                 Feedback from the user.
-                TODO: change run() to pass feedback to act(). Right now it retries
+                
         """
         if not feedback:
             if self.multiturn_demonstrations:
@@ -123,15 +125,17 @@ class Agent:
                 demos_list = self._load_fewshot_demonstrations_data()
                 
                 prompt = [SystemMessage(system_message_content)]
-                for i,demo in enumerate(demos_list):
-                    user_message_content = ""
-                    ai_message_content = ""
-                    if i==0:
-                        user_message_content = self.user_initial_prefix
+                user_message_content = self.user_initial_prefix
+                ai_message_content = ""
+                # fewshot examples
+                for demo in demos_list:
                     user_message_content += self.user_template.format(replace = demo)
                     ai_message_content = self.demonstration_template.format(replace = demo)
                     prompt.append(HumanMessage(user_message_content))
                     prompt.append(AIMessage(ai_message_content))
+                    user_message_content = ""
+                    ai_message_content = ""
+                    
             else: # demos on system message 
                 system_message_content = self.prompt_template['system'].format(
                     agent_description=self.agent_description,
@@ -142,6 +146,7 @@ class Agent:
                 prompt = [system_message]
             env_data = self.observe_environment()
 
+            # current user prompt
             user_message_content = self.user_template.format(replace = env_data)
             user_message = HumanMessage(content = user_message_content)
             assistant_prefix = AIMessagePrefix(self.assistant_prefix)
@@ -180,11 +185,11 @@ class Agent:
             feedback: str = None
                 Feedback from the user. If not None, it means the agent made a mistake and needs to be corrected.
         """
-        printc(f"Agent {self.agent_id} on page {self.environment.current_page}.", c="r")
+        printc(f"Agent {self.agent_id} on page {self.environment.current_page}, num_actions={self.num_actions}.", c="r")
         prompt = self.build_prompt(feedback)
 
         printc(f"Agent {self.agent_id} says: {prompt[-2].content}")
-        printc_prompt(self.prompt, c='p')
+        #printc_prompt(self.prompt, c='p')
 
         self.user_prompt_history.append(prompt[-2].content)
         start = time()
@@ -194,6 +199,7 @@ class Agent:
         self.response_history.append(response.content)
         actions = self.extract_actions(response)
         self.apply_actions(actions)
+        self.action_history.append(actions)
 
     def is_finished(self):
         """ Finishing condition is agent type dependent."""
@@ -211,6 +217,7 @@ class WikiNavAgent(Agent):
     Virtual class for agents that navigate Wikipedia with a target page.
     """
     target_page: str = field(default=None)
+    visited_pages: list[str] = field(factory=list)
 
     # features
     use_retry: bool = field(default=False)
@@ -223,6 +230,10 @@ class WikiNavAgent(Agent):
 
     def set_target_page(self, target_page: str):
         self.target_page = wikify_article_name(target_page)
+
+    def set_environment(self, environment: Environment):
+        self.visited_pages.append(environment.current_page)
+        return super().set_environment(environment)
     
     def get_run_df(self):
         df = pd.DataFrame({
@@ -231,10 +242,12 @@ class WikiNavAgent(Agent):
             'src': self.source_page,
             'tgt': self.target_page,
             'path': ";".join(self.environment.page_history),
+            'visited_pages': ";".join(self.visited_pages),
             'fewshot': self.fewshot,
             'num_actions': self.num_actions,
-            'num_errors': self.num_tries,
-            'reached_goal': self.environment.current_page == self.target_page,
+            'num_tries': self.num_tries,
+            'ending': self.is_finished()[1],
+            'action_history': [self.action_history],
             'user_prompt_history': [self.user_prompt_history],
             'response_history': [self.response_history],
         })
@@ -261,10 +274,11 @@ class WikiNavAgent(Agent):
                 self.num_tries = 0
             except Exception as e:
                 printc(f"Error in agent {self.agent_id}: {e}", c="r")
+                self.action_history.append(str(e))
                 self.num_tries += 1
                 if self.use_retry:
                     pass
-                    feedback = str(e)
+                    feedback = str(e) if self.use_feedback else None
                 else:
                     break
 
@@ -283,12 +297,7 @@ class LinkClickAgent(WikiNavAgent):
     """
     template_file: str = field(default="src/configs/agent/link_click_agent.yaml")
     demonstrations_file: str = field(default="data/wikispeedia/wikispeedia_paths-and-graph/fewshot_click_demonstrations.tsv")
-    fewshot_click_types: str = field(default=None)
-
-    def __attrs_post_init__(self):
-        if not self.fewshot_click_types:
-            # this makes it so we can use None as the default value for all subclasses
-            self.fewshot_click_types = 'all_no_back'
+    fewshot_click_types: str = field(default='all_no_back')
 
     def _load_fewshot_demonstrations_data(self) -> list[dict]:
         demos_df = pd.read_csv(self.demonstrations_file, sep='\t').fillna('NA')
@@ -347,16 +356,11 @@ class LinkClickDFSAgent(LinkClickAgent):
     Makes playing Wikispeedia similar to a DFS.
     """
     use_back: bool = field(default=True)
-    visited_pages: list[str] = field(factory=list)
 
     def __attrs_post_init__(self):
-        if not self.fewshot_click_types:
+        if self.fewshot_click_types != 'first-only':
             self.fewshot_click_types = 'all_no_back' if not self.use_back else 'all'
         return super().__attrs_post_init__()
-
-    def set_environment(self, environment: Environment):
-        self.visited_pages.append(environment.current_page)
-        return super().set_environment(environment)
 
     def observe_environment(self):
         self.environment.remove_pages_from_links(self.visited_pages)
