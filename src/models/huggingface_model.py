@@ -40,7 +40,7 @@ class HuggingFaceModel(ChatModel):
     do_sample: bool = True # whether to sample or not
     num_threads: int = 16 # number of CPU cores to use
     raw_prompt: str = None # the raw prompt
-    stop_token: int = None # the stop token (besides the eos token)
+    stop: str = None # the stop character (besides the eos token)
 
     def __attrs_post_init__(self):
         """
@@ -85,7 +85,7 @@ class HuggingFaceModel(ChatModel):
         data = self._preprocess(data)
         # printc(f"data: {data}", c="g")
         # outputs = List[dict{"generated_text": str}], for text generation models
-        if self.stop_token:
+        if self.stop:
             stopping_criteria = self.get_stopping_criteria()
         else:
             stopping_criteria = None
@@ -149,7 +149,7 @@ class HuggingFaceModel(ChatModel):
     def get_stopping_criteria(self):
         # printc(f"stop_word: {(self.stop_token, self.tokenizer.decode(self.stop_token))}", c="g")
         
-        return [CustomStoppingCriteria(stops=[[self.stop_token]])]
+        return [CustomStoppingCriteria(stop=self.stop, tokenizer=self.tokenizer)]
 
 def preprocess_llama_chat(dialog):
     """
@@ -178,14 +178,16 @@ def preprocess_llama_chat(dialog):
 
 
 class CustomStoppingCriteria(StoppingCriteria):
-            def __init__(self, stops = []):
-                self.stops = stops
+    def __init__(self, stop: str = None, tokenizer=None):
+        self.stop = stop
+        self.tokenizer = tokenizer
 
-
-            def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, stops = []) -> bool:
-                last_id = input_ids[:,-1].tolist()
-                # printc(f"last_id: {last_id}, stops: {self.stops}, is in stops: {last_id in self.stops}", c="g")
-                return last_id in self.stops
+    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, stops = []) -> bool:
+        last_id = input_ids[:,-1].tolist()
+        # we have to check if the string is in the stops cause there's multiple tokens that have }
+        last_str = self.tokenizer.decode(last_id)
+        #printc(f"last_id: {last_id}, stop: {self.stop}, stop in last_str:{self.stop in last_str}", c="g")     
+        return self.stop in last_str
 
 if __name__ == "__main__":
     # test that this module works
