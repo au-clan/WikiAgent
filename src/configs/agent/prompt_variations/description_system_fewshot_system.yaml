@@ -4,6 +4,8 @@ use_retry: True
 max_tries: 3
 max_actions: 50
 use_back: True
+use_feedback: True
+
 multiturn_demonstrations: False
 
 agent_description: |-
@@ -11,7 +13,7 @@ agent_description: |-
   {replace[instructions]}
   Here are some previous conversations between the Assistant and the User:
   {replace[fewshot_demonstrations]}
-  
+
 
 instructions: |
   In Wikispeedia, given two Wikipedia articles, a source and a target, your goal is to reach the target article starting from the source article in as few clicks as possible. For the articles given this is always possible. Choose the page that will take the user closer to the target, **only** from the provided candidates.

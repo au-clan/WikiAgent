@@ -4,6 +4,8 @@ use_retry: True
 max_tries: 3
 max_actions: 50
 use_back: True
+use_feedback: True
+
 multiturn_demonstrations: True
 
 agent_description: |-

@@ -286,4 +286,4 @@ def get_api_settings(api_provider, fpath='data/api_settings/apis.yaml'):
 
 def printc_prompt(prompt: List[BaseMessage], c="r"):
     for msg in prompt:
-        printc(f"{msg.role}: {msg.content}", c=c)
+        printc(f"[{msg.role.upper()}]: {msg.content}", c=c)
