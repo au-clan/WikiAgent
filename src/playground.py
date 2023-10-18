@@ -87,7 +87,8 @@ async def game_environment(cfg: DictConfig):
         printc(f"Current page: {env_data['src']}", c="y")
         printc(f"\nLinks: {env_data['links']}", c="b")
         printc(f"\nContent: {env.content}", c="g")
-        printc(f"\nPage history: {env.page_history}", c="r")
+        printc(f"\nPage history: {';'.join(env.page_history)}", c="r")
+        printc(f"\nFull page history: {';'.join(env.full_page_history)}", c="r")
         printc(f"\nContent history: {env.content_history}", c="r")
         printc(f"Agent prompt:", c="y")
         printc_prompt(agent.build_prompt())
@@ -121,7 +122,6 @@ async def test_stuff(cfg: DictConfig):
     try:
         results = await asyncio.gather(*agent_tasks, batch_processor, return_exceptions=False)
         batch_processor.cancel()
-        agent.get_run_df().to_csv(os.path.join(cfg.output_dir, "agent_run.tsv"), sep="\t", index=False)
         for result in results:
             print("result:",result)
     except Exception as e:

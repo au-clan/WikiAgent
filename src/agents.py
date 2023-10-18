@@ -191,8 +191,9 @@ class Agent:
 
         printc(f"Agent {self.agent_id} says: {prompt[-2].content}")
         #printc_prompt(self.prompt, c='p')
-
+    
         self.user_prompt_history.append(prompt[-2].content)
+        printc(f"User prompt history: {self.user_prompt_history}", c="y")
         start = time()
         if not debug:
             response = await self.handler.send_prompt(self.agent_id, prompt)
@@ -240,24 +241,6 @@ class WikiNavAgent(Agent):
         self.visited_pages.append(environment.current_page)
         return super().set_environment(environment)
     
-    def get_run_df(self):
-        df = pd.DataFrame({
-            'agent_id': self.agent_id,
-            'agent_type': self.__class__.__name__,
-            'src': self.source_page,
-            'tgt': self.target_page,
-            'effective_path': ";".join(self.environment.page_history),
-            'visited_pages': ";".join(self.visited_pages),
-            'fewshot': self.fewshot,
-            'num_actions': self.num_actions,
-            'num_tries': self.num_tries,
-            'ending': self.is_finished()[1],
-            'action_history': [self.action_history],
-            'user_prompt_history': [self.user_prompt_history],
-            'response_history': [self.response_history],
-        })
-        return df
-    
     def update_runs_df(self):
         row = {
             'agent_id': self.agent_id,
@@ -272,7 +255,6 @@ class WikiNavAgent(Agent):
             'is_finished': self.is_finished()[0],
             'is_finished_reason': self.is_finished()[1],
             'path_so_far': ";".join(self.environment.full_page_history),
-            'prompt': self.prompt,
             'user_prompt': self.user_prompt_history[-1],
         }
         self.run_df = pd.concat([self.run_df, pd.DataFrame([row])], ignore_index=True)
@@ -310,6 +292,7 @@ class WikiNavAgent(Agent):
             except Exception as e:
                 printc(f"Error in agent {self.agent_id}: {e}", c="r")
                 self.action_history.append(str(e))
+                self.num_actions += 1
                 self.num_tries += 1
                 if self.use_retry:
                     feedback = str(e) if self.use_feedback else None

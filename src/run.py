@@ -42,9 +42,6 @@ async def main(cfg: DictConfig):
     try:
         results = await asyncio.gather(*agent_tasks, batch_processor, return_exceptions=False)
         batch_processor.cancel()
-        dfs = [agent.get_run_df() for agent in agents]
-        df = pd.concat(dfs, ignore_index=True)
-        df.to_csv(os.path.join(cfg.output_dir, "agent_runs.tsv"), sep="\t", index=False)
         for result in results:
             print("result:",result)
     except Exception as e:
