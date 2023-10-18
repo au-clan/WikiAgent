@@ -40,6 +40,7 @@ class Agent:
     user_initial_prefix: str = field(factory=str)
     user_template: str = field(factory=str)
     assistant_prefix: str = field(factory=str)
+    instructions: str = field(factory=str)
 
     fewshot: int = field(default=5)
     demonstrations_file: str = field(default=None)
@@ -47,6 +48,7 @@ class Agent:
 
     # data about a run
     num_actions: int = field(default=0)
+    num_errors: int = field(default=0)
     num_tries: int = field(default=0)
     run_df = field(factory=pd.DataFrame)
     user_prompt_history = field(factory=list)
@@ -92,7 +94,8 @@ class Agent:
         fewshot_demonstrations = []
         for demo in demos_list:
             user_template_filled = self.user_template.format(replace = demo)
-            fewshot_demonstrations.append(self.demonstration_template.format(user_template = user_template_filled, replace = demo))
+            demo['user_template'] = user_template_filled
+            fewshot_demonstrations.append(self.demonstration_template.format(replace = demo))
         return fewshot_demonstrations
 
     def _load_fewshot_demonstrations_data(self) -> list[dict]:
@@ -118,15 +121,19 @@ class Agent:
                 Feedback from the user.
                 
         """
+        replace_dict = {"instructions": self.instructions}
+        user_message_content = ""
         if not feedback:
             if self.multiturn_demonstrations:
-                system_message_content = self.agent_description
+                replace_dict['agent_description'] = self.agent_description.format(replace=replace_dict)
+                system_message_content = self.prompt_template['system'].format(replace=replace_dict)
+
                 if self.use_feedback:
                     system_message_content += " " + self.prompt_template['feedback_prefix']
                 demos_list = self._load_fewshot_demonstrations_data()
                 
                 prompt = [SystemMessage(system_message_content)]
-                user_message_content = self.user_initial_prefix
+                user_message_content += self.user_initial_prefix.format(replace=replace_dict)
                 ai_message_content = ""
                 # fewshot examples
                 for demo in demos_list:
@@ -137,18 +144,18 @@ class Agent:
                     user_message_content = ""
                     ai_message_content = ""
                     
-            else: # demos on system message 
-                system_message_content = self.prompt_template['system'].format(
-                    agent_description=self.agent_description,
-                    user_initial_prefix=self.user_initial_prefix,
-                    fewshot_demonstrations="\n".join(self.get_fewshot_demonstrations()),
-                )
+            else: # non-multiturn demonstrations 
+                replace_dict['fewshot_demonstrations'] = "\n".join(self.get_fewshot_demonstrations())
+                replace_dict['agent_description'] = self.agent_description.format(replace=replace_dict)
+                system_message_content = self.prompt_template['system'].format(replace=replace_dict)
+                user_message_content += self.user_initial_prefix.format(replace=replace_dict)
                 system_message = SystemMessage(system_message_content)
                 prompt = [system_message]
+
             env_data = self.observe_environment()
 
             # current user prompt
-            user_message_content = self.user_template.format(replace = env_data)
+            user_message_content += self.user_template.format(replace = env_data)
             user_message = HumanMessage(content = user_message_content)
             assistant_prefix = AIMessagePrefix(self.assistant_prefix)
 
@@ -186,14 +193,13 @@ class Agent:
             feedback: str = None
                 Feedback from the user. If not None, it means the agent made a mistake and needs to be corrected.
         """
-        printc(f"Agent {self.agent_id} on page {self.environment.current_page}, num_actions={self.num_actions}.", c="r")
+        printc(f"Agent {self.agent_id} on page {self.environment.current_page}, num_actions={self.num_actions}, num_errors={self.num_errors}.", c="r")
         prompt = self.build_prompt(feedback)
 
         printc(f"Agent {self.agent_id} says: {prompt[-2].content}")
-        #printc_prompt(self.prompt, c='p')
+        printc_prompt(self.prompt, c='p')
     
         self.user_prompt_history.append(prompt[-2].content)
-        printc(f"User prompt history: {self.user_prompt_history}", c="y")
         start = time()
         if not debug:
             response = await self.handler.send_prompt(self.agent_id, prompt)
@@ -252,6 +258,7 @@ class WikiNavAgent(Agent):
             'action': self.action_history[-1],
             'num_actions': self.num_actions,
             'num_tries': self.num_tries,
+            'num_errors': self.num_errors,
             'is_finished': self.is_finished()[0],
             'is_finished_reason': self.is_finished()[1],
             'path_so_far': ";".join(self.environment.full_page_history),
@@ -293,6 +300,7 @@ class WikiNavAgent(Agent):
                 printc(f"Error in agent {self.agent_id}: {e}", c="r")
                 self.action_history.append(str(e))
                 self.num_actions += 1
+                self.num_errors += 1
                 self.num_tries += 1
                 if self.use_retry:
                     feedback = str(e) if self.use_feedback else None
@@ -415,4 +423,3 @@ class LinkClickDFSAgent(LinkClickAgent):
                 except Exception as e:
                     raise e
     
-

@@ -108,7 +108,7 @@ async def game_environment(cfg: DictConfig):
 async def test_stuff(cfg: DictConfig):
     env = LinkWikiEnviroment(cfg.experiment.src)
     model=None
-    #model = instantiate(cfg.model) if not cfg.experiment.debug_mode else None
+    model = instantiate(cfg.model) if not cfg.experiment.debug_mode else None
     handler = BatchHandler(batch_size=1, debug_mode=cfg.experiment.debug_mode, model=model)
     agent = instantiate(cfg.agent)
     agent.set_environment(env)
@@ -116,7 +116,7 @@ async def test_stuff(cfg: DictConfig):
     agent.set_handler(handler)
     agent.set_agent_id(0)
 
-    agent_tasks = [asyncio.create_task(agent.run(debug=True))]
+    agent_tasks = [asyncio.create_task(agent.run(debug=False))]
     batch_processor = asyncio.create_task(handler.process_batch())
     
     try:
