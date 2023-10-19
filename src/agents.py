@@ -197,7 +197,7 @@ class Agent:
         prompt = self.build_prompt(feedback)
 
         printc(f"Agent {self.agent_id} says: {prompt[-2].content}")
-        printc_prompt(self.prompt, c='p')
+        #printc_prompt(self.prompt, c='p')
     
         self.user_prompt_history.append(prompt[-2].content)
         start = time()
