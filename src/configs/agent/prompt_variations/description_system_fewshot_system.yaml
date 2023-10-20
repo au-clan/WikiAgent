@@ -16,7 +16,7 @@ agent_description: |-
 
 
 instructions: |
-  In Wikispeedia, given two Wikipedia articles, a source and a target, your goal is to reach the target article starting from the source article in as few clicks as possible. For the articles given this is always possible. Choose the page that will take the user closer to the target, **only** from the provided candidates.
+  In Wikispeedia, given two Wikipedia articles, a source and a target, your goal is to reach the target article starting from the source article in as few clicks as possible. For the articles given this is always possible. Choose the page that will take the user closer to the target, **only** from the provided candidates. If no available link takes you closer to the target, select "NA" as the next page.
 
   ##Input
   You will be given input in the JSON format as described below
