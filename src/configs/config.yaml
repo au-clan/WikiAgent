@@ -6,7 +6,8 @@ defaults:
   - hydra: inference
 
 # Directories
-work_dir: ${hydra:runtime.cwd}
+nfs_dir: dlabdata1
+work_dir: ${nfs_dir}/charneca/WikiNav #${hydra:runtime.cwd}
 data_dir: ${work_dir}/data
 # path to output directory, created dynamically by hydra
 output_dir: ${hydra:runtime.output_dir}

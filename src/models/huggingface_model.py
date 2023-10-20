@@ -32,6 +32,7 @@ class HuggingFaceModel(ChatModel):
     """
     model_provider: str = 'huggingface'  # The provider of the model
     model_name: str = 'meta-llama/Llama-2-7b-chat-hf'  # The name of the model
+    model_path: str = None  # The path to the model
     generator: pipeline = None  # The generator to be used
     tokenizer: Any = None  # The tokenizer to be used
     batch_size: int = 1  # The batch size to be used
@@ -138,13 +139,16 @@ class HuggingFaceModel(ChatModel):
         """ 
         This method initializes the model and tokenizer.
         """
-        self.generator = pipeline("text-generation", model=self.model_name,
+        ###
+        printc(os.listdir(os.path.join(os.getcwd(), "../..")), c="g")
+        self.generator = pipeline("text-generation", model=self.model_path if self.model_path else self.model_name,
                                                 tokenizer=self.model_name,
                                                 batch_size=self.batch_size, 
                                                 device=0 if self.device == "cuda" else -1)
         self.tokenizer = self.generator.tokenizer
         self.generator.tokenizer.pad_token_id = self.tokenizer.eos_token_id
-        torch.set_num_threads(self.num_threads)
+        if self.device == "cpu":
+            torch.set_num_threads(self.num_threads)
 
     def get_stopping_criteria(self):
         # printc(f"stop_word: {(self.stop_token, self.tokenizer.decode(self.stop_token))}", c="g")
