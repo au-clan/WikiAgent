@@ -149,6 +149,7 @@ class HuggingFaceModel(ChatModel):
             self.generator = pipeline("text-generation", model=self.model_path if self.model_path else self.model_name,
                                                     tokenizer=self.model_name,
                                                     batch_size=self.batch_size, 
+                                                    torch_dtype = torch.float16 if self.half_precision else torch.float32,
                                                     device_map="auto")
         self.tokenizer = self.generator.tokenizer
         self.generator.tokenizer.pad_token_id = self.tokenizer.eos_token_id            
