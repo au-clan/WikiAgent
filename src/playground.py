@@ -106,7 +106,7 @@ async def game_environment(cfg: DictConfig):
             break
 
 async def test_stuff(cfg: DictConfig):
-    env = LinkWikiEnviroment(cfg.experiment.src)
+    env = LinkWikiEnviroment(cfg.experiment.src, links_file=cfg.links_file)
     model=None
     model = instantiate(cfg.model) if not cfg.experiment.debug_mode else None
     handler = BatchHandler(batch_size=1, debug_mode=cfg.experiment.debug_mode, model=model)

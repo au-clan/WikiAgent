@@ -27,7 +27,7 @@ async def main(cfg: DictConfig):
     agents = []
     envs = []
     for i,path in enumerate(paths_real):
-        env = LinkWikiEnviroment(path["src"])
+        env = LinkWikiEnviroment(path["src"], links_file=cfg.links_file)
         agent = instantiate(cfg.agent)
         agent.set_environment(env)
         agent.set_handler(handler)

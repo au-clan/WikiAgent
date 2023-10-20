@@ -1,26 +1,19 @@
+import hydra
 import json, re
 from urllib.parse import unquote
 import pandas as pd
 import regex
 import yaml
 import os
+from omegaconf import DictConfig
 
-def load_hydra_config(config_path: str = "src/configs/config.yaml")->dict:
-    """
-    Loads a hydra config file into a dictionary.
-    """
-    with open(os.path.join(os.getcwd(), config_path)) as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
-    return config
 
 def get_paths_real_sample(n=100, paths_real_file='wikispeedia/wikispeedia_paths-and-graph/paths_real_processed.tsv') -> list[dict]:
     """
     Gets a sample of unique paths from the paths_real_processed.tsv file.
     Note: right now returns only the src and tgt pages.
     """
-    cfg = load_hydra_config()
-    path = os.path.join(cfg['data_dir'], paths_real_file)
-    paths_real_df = pd.read_csv(path, sep='\t')
+    paths_real_df = pd.read_csv(paths_real_file, sep='\t')
 
     paths_real_sample_df = paths_real_df.groupby(['src', 'tgt']).agg({"shpl": "min", "shepl": "min"}).reset_index().sample(n=n, random_state=42)
     paths_real_sample = []
@@ -102,8 +95,7 @@ def load_links(path="wikispeedia/wikispeedia_paths-and-graph/links.tsv") -> dict
     """
     Loads the links file into a dictionary.
     """
-    cfg = load_hydra_config()
-    flinks = open(os.path.join(cfg['data_dir'], path))
+    flinks = open(path)
     links = {}
     for i, line in enumerate(flinks):
         line = line.strip()

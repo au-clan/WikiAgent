@@ -2,7 +2,7 @@ defaults:
   - _self_
   - experiment: agent_test
   - model: llama_2_7b_chat_hf
-  - agent: link_click_dfs_agent
+  - agent: prompt_variations/description_system_fewshot_multiturn
   - hydra: inference
 
 # Directories (these are absolute paths on the nfs server)
@@ -11,8 +11,10 @@ work_dir: ${nfs_dir}/charneca/WikiNav #${hydra:runtime.cwd} if running locally o
 data_dir: ${work_dir}/data
 # path to output directory, created dynamically by hydra
 output_dir: ${work_dir}/outputs
+
 agent_runs_file: ${output_dir}/agent_runs.tsv
 paths_real_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/paths_real_processed.tsv
+links_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/links.tsv
 
 # determines the log directory's parent folder
 experiment_name: inference
