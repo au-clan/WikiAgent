@@ -4,6 +4,7 @@ from typing import List, Any
 import asyncio
 from model_utils import BaseMessage,AIMessage, ChatModel
 from utils import printc
+from time import time
 
 @define
 class BatchHandler:
@@ -49,7 +50,10 @@ class BatchHandler:
                 outputs = [AIMessage(content='{"click": "Tin"}') for _ in batch]
             else:
                 printc("Sending batch to model...", c="y")
+                start = time()
                 outputs = self.model(batch)
+                printc(f"Average time per input: {(time() - start) / len(batch):.2f}s", c="y")
+
 
             for (agent_id, event), output in zip(events, outputs):
                 self.responses[agent_id] = output

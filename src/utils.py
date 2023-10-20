@@ -5,11 +5,11 @@ import regex
 import yaml
 import os
 
-def load_hydra_config(config_path: str = "../src/configs/config.yaml"):
+def load_hydra_config(config_path: str = "src/configs/config.yaml")->dict:
     """
     Loads a hydra config file into a dictionary.
     """
-    with open(config_path) as f:
+    with open(os.path.join(os.getcwd(), config_path)) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
     return config
 
@@ -19,7 +19,7 @@ def get_paths_real_sample(n=100, paths_real_file='wikispeedia/wikispeedia_paths-
     Note: right now returns only the src and tgt pages.
     """
     cfg = load_hydra_config()
-    path = os.path.join(cfg.data_dir, paths_real_file)
+    path = os.path.join(cfg['data_dir'], paths_real_file)
     paths_real_df = pd.read_csv(path, sep='\t')
 
     paths_real_sample_df = paths_real_df.groupby(['src', 'tgt']).agg({"shpl": "min", "shepl": "min"}).reset_index().sample(n=n, random_state=42)
