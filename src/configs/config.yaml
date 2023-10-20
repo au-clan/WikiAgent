@@ -5,13 +5,13 @@ defaults:
   - agent: link_click_dfs_agent
   - hydra: inference
 
-# Directories
-nfs_dir: dlabdata1
-work_dir: ${nfs_dir}/charneca/WikiNav #${hydra:runtime.cwd}
+# Directories (these are absolute paths on the nfs server)
+nfs_dir: /dlabdata1
+work_dir: ${nfs_dir}/charneca/WikiNav #${hydra:runtime.cwd} if running locally only
 data_dir: ${work_dir}/data
 # path to output directory, created dynamically by hydra
-output_dir: ${hydra:runtime.output_dir}
-agent_runs_file: ${hydra:runtime.output_dir}/agent_runs.tsv
+output_dir: ${work_dir}/outputs
+agent_runs_file: ${output_dir}/agent_runs.tsv
 paths_real_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/paths_real_processed.tsv
 
 # determines the log directory's parent folder

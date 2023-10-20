@@ -139,9 +139,6 @@ class HuggingFaceModel(ChatModel):
         """ 
         This method initializes the model and tokenizer.
         """
-        ###
-        printc(os.getcwd())
-        printc(os.listdir(os.path.join(os.getcwd(), "../..")), c="g")
         self.generator = pipeline("text-generation", model=self.model_path if self.model_path else self.model_name,
                                                 tokenizer=self.model_name,
                                                 batch_size=self.batch_size, 

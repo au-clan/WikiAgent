@@ -134,5 +134,5 @@ def hydra_wrapper(func):
     wrapper()
 
 if __name__ == "__main__":
-    #llama_multiturn_prompt()
-    hydra_wrapper(test_stuff)
+    batching()
+    #hydra_wrapper(test_stuff)
