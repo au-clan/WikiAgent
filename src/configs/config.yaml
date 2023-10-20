@@ -9,11 +9,11 @@ defaults:
 nfs_dir: /dlabdata1
 work_dir: ${nfs_dir}/charneca/WikiNav #${hydra:runtime.cwd} if running locally only
 data_dir: ${work_dir}/data
+
 # path to output directory, created dynamically by hydra
-output_dir: ${work_dir}/outputs
 logs_dir: ${work_dir}/logs
 
-agent_runs_file: ${output_dir}/agent_runs.tsv
+agent_runs_file: ${hydra:runtime.output_dir}/agent_runs.tsv
 paths_real_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/paths_real_processed.tsv
 links_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/links.tsv
 

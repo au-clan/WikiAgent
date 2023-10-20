@@ -2,10 +2,10 @@ job_logging:
   handlers:
     file:
       # relative to the job log directory
-      filename: ${output_dir}/stdout_${hydra.job.name}_${now:%Y-%m-%d}_${now:%H-%M-%S}.log
+      filename: ${hydra:runtime.output_dir}/stdout_${hydra.job.name}_${now:%Y-%m-%d}_${now:%H-%M-%S}.log
 
 
-# output paths for hydra logs
+# output paths for hydra logs (this decides the hydra:runtime.output_dir)
 run:
   dir: ${logs_dir}/${experiment_name}/runs/${now:%Y-%m-%d}_${now:%H-%M-%S-%f}
 
