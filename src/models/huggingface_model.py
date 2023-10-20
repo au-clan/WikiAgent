@@ -139,15 +139,19 @@ class HuggingFaceModel(ChatModel):
         """ 
         This method initializes the model and tokenizer.
         """
-        self.generator = pipeline("text-generation", model=self.model_path if self.model_path else self.model_name,
-                                                tokenizer=self.model_name,
-                                                batch_size=self.batch_size, 
-                                                device=0 if self.device == "cuda" else -1,
-                                                device_map="auto")
-        self.tokenizer = self.generator.tokenizer
-        self.generator.tokenizer.pad_token_id = self.tokenizer.eos_token_id
-        if self.device == "cpu":
+        if self.device=="cpu":
+            self.generator = pipeline("text-generation", model=self.model_path if self.model_path else self.model_name,
+                                                            tokenizer=self.model_name,
+                                                            batch_size=self.batch_size, 
+                                                            device= -1)
             torch.set_num_threads(self.num_threads)
+        else: # cuda device
+            self.generator = pipeline("text-generation", model=self.model_path if self.model_path else self.model_name,
+                                                    tokenizer=self.model_name,
+                                                    batch_size=self.batch_size, 
+                                                    device_map="auto")
+        self.tokenizer = self.generator.tokenizer
+        self.generator.tokenizer.pad_token_id = self.tokenizer.eos_token_id            
 
     def get_stopping_criteria(self):
         # printc(f"stop_word: {(self.stop_token, self.tokenizer.decode(self.stop_token))}", c="g")
