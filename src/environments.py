@@ -96,7 +96,7 @@ class LinkWikiEnviroment(WikiEnvironment):
     """
     Each page is only represented by the links it has.
     """
-    links_file = field(default="data/wikispeedia/wikispeedia_paths-and-graph/links.tsv")
+    links_file = field(default="wikispeedia/wikispeedia_paths-and-graph/links.tsv")
 
     def _set_links(self):
         """
