@@ -141,13 +141,13 @@ class HuggingFaceModel(ChatModel):
         """
         if self.device=="cpu":
             self.generator = pipeline("text-generation", model=self.model_path if self.model_path else self.model_name,
-                                                            tokenizer=self.model_name,
+                                                            tokenizer=self.model_path if self.model_path else self.model_name,
                                                             batch_size=self.batch_size, 
                                                             device= -1)
             torch.set_num_threads(self.num_threads)
         else: # cuda device
             self.generator = pipeline("text-generation", model=self.model_path if self.model_path else self.model_name,
-                                                    tokenizer=self.model_name,
+                                                    tokenizer=self.model_path if self.model_path else self.model_name,
                                                     batch_size=self.batch_size, 
                                                     torch_dtype = torch.float16 if self.half_precision else torch.float32,
                                                     device_map="auto")
