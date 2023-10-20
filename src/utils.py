@@ -98,11 +98,12 @@ def printc(x, c='r'):
     reset_color = '\033[0m'
     print(f'{m2.get(m1.get(c, c), c)}{x}{reset_color}')
 
-def load_links(file="data/wikispeedia/wikispeedia_paths-and-graph/links.tsv") -> dict:
+def load_links(path="wikispeedia/wikispeedia_paths-and-graph/links.tsv") -> dict:
     """
     Loads the links file into a dictionary.
     """
-    flinks = open(file)
+    cfg = load_hydra_config()
+    flinks = open(os.path.join(cfg['data_dir'], path))
     links = {}
     for i, line in enumerate(flinks):
         line = line.strip()
