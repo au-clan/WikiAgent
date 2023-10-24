@@ -42,8 +42,7 @@ async def main(cfg: DictConfig):
     try:
         results = await asyncio.gather(*agent_tasks, batch_processor, return_exceptions=False)
         batch_processor.cancel()
-        for result in results:
-            print("result:",result)
+        print(f"Run finished with {results.count(True)} successes and {results.count(False)} failures.")
     except Exception as e:
         raise e
 

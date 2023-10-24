@@ -2,7 +2,7 @@ defaults:
   - _self_
   - experiment: agent_test
   - model: llama_2_7b_chat_hf
-  - agent: prompt_variations/description_system_fewshot_multiturn
+  - agent: link_click_dfs_back_agent
   - hydra: inference
 
 # Directories (these are absolute paths on the nfs server)

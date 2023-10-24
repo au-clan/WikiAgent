@@ -90,20 +90,23 @@ class HuggingFaceModel(ChatModel):
             stopping_criteria = self.get_stopping_criteria()
         else:
             stopping_criteria = None
-
+        for d in data:
+            printc(f"\ninput: {d}", c="g")
         outputs = self.generator(data,
                                  max_new_tokens=self.context_max_tokens,
                                  pad_token_id=self.tokenizer.eos_token_id,
                                  do_sample=self.do_sample, 
                                  top_p=self.top_p,
                                  temperature=self.temperature,
-                                 stopping_criteria=stopping_criteria)#[:, data.shape[1]:]
+                                 stopping_criteria=stopping_criteria,)#[:, data.shape[1]:]
         # outputs = self.model.generate(data,
         #                               max_new_tokens=self.context_max_tokens,
         #                               pad_token_id=self.tokenizer.eos_token_id,
         #                               temperature=self.temperature,
         #                               do_sample=self.do_sample, top_p=self.top_p,)[:, data.shape[1]:]
         # printc(f"model outputs: {outputs}", c="g")
+        for output in outputs:
+            printc(f"\noutput: {output}", c="p")
         output = self._postprocess(outputs)
         token_list = self.tokenizer.encode(output[0].content)
         # printc(f"output tokens: {[(token_list[i], self.tokenizer.decode(token_list[i])) for i in range(len(token_list))]}", c="g")
@@ -151,8 +154,12 @@ class HuggingFaceModel(ChatModel):
                                                     batch_size=self.batch_size, 
                                                     torch_dtype = torch.float16 if self.half_precision else torch.float32,
                                                     device_map="auto")
+        if "llama" in self.model_name.lower():
+            self.generator.tokenizer.pad_token = "[PAD]"
+            self.generator.tokenizer.padding_side = "left"
+        else:
+            self.generator.tokenizer.pad_token_id = self.tokenizer.eos_token_id            
         self.tokenizer = self.generator.tokenizer
-        self.generator.tokenizer.pad_token_id = self.tokenizer.eos_token_id            
 
     def get_stopping_criteria(self):
         # printc(f"stop_word: {(self.stop_token, self.tokenizer.decode(self.stop_token))}", c="g")
