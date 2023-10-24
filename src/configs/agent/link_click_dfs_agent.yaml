@@ -1,10 +1,20 @@
 _target_: agents.LinkClickDFSAgent
+fewshot: 5
+use_retry: True
+max_tries: 3
+max_actions: 50
+use_back: False
+use_feedback: True
+
+multiturn_demonstrations: True
+
 agent_description: |-
   Assistant is a expert JSON builder designed to assist the user in playing play the game of Wikispeedia. Assistant is familiar with all Wikipedia pages and can help the user find a path between two Wikipedia articles.
+  {replace[instructions]}
 
-user_initial_prefix: |
+instructions: |
   In Wikispeedia, given two Wikipedia articles, a source and a target, your goal is to reach the target article starting from the source article in as few clicks as possible. For the articles given this is always possible. Choose the page that will take the user closer to the target, **only** from the provided candidates.
-
+  
   ##Input
   You will be given input in the JSON format as described below
   Input format:
@@ -16,11 +26,10 @@ user_initial_prefix: |
   {"next_page": "<chosen page for user to click on>"}
   Ensure the response can be parsed by Python json.loads
 
-  
+user_initial_prefix: ""
+
 user_template: |-
   {{"source": "{replace[src]}", "target": "{replace[tgt]}", "links": "{replace[links]}"}}
-
-# I'm currently on the page {replace[src]} and the target page is {replace[tgt]}. Tell me what link I should click on to get closer to the target. This is a list of links on the current page:{replace[links]}
   
 assistant_prefix: |-
   {"
@@ -31,9 +40,3 @@ demonstration_template: |-
 demonstrations_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/fewshot_click_demonstrations.tsv
 agent_runs_file: ${agent_runs_file}
 
-fewshot: 5
-use_retry: True
-max_tries: 3
-max_actions: 15
-use_back: False
-multiturn_demonstrations: True
