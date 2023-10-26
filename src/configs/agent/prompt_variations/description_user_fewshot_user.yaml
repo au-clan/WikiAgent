@@ -26,19 +26,19 @@ instructions: |
   Ensure the response can be parsed by Python json.loads
 
 user_initial_prefix: |
-  {replace[instructions]}
+  {replace[instructions]}{replace[feedback_prefix]}
   Here are some previous conversations between the Assistant and the User:
   {replace[fewshot_demonstrations]}
-  Now continue the following conversation:
+  Now continue the conversation with this user input:
 
 user_template: |-
-  User: {{"source": "{replace[src]}", "target": "{replace[tgt]}", "links": "{replace[links]}"}}
+  {{"source": "{replace[src]}", "target": "{replace[tgt]}", "links": "{replace[links]}"}}
   
 assistant_prefix: |-
-  Assistant: {"
+  {"
 
 demonstration_template: |-
-  {replace[user_template]}
+  User: {replace[user_template]}
   Assistant: {{"next_page": "{replace[click]}"}}
 
 demonstrations_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/fewshot_click_demonstrations.tsv

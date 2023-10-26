@@ -1,0 +1,13 @@
+_target_: models.huggingface_model.HuggingFaceModel
+model_provider: huggingface
+model_name: gpt2
+
+temperature: 0.7
+half_precision: False #set to False if on CPU
+num_threads: 16
+batch_size: 1
+top_p: 1
+do_sample: True # if False is the same as temperature = 0
+device: 'cpu' # or cuda
+
+stop: '}'

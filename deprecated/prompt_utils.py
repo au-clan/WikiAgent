@@ -3,13 +3,14 @@
 from attr import define
 import sys 
 sys.path.append("src/")
+from typing import List
 from model_utils import BaseMessage, ChatModel, AIMessage, SystemMessage, HumanMessage
 
 # Link Only Navigation
 def get_navigate_entire_path_prompt(system_prompt: str, user_prompt: str, 
                                     fewshot_demonstrations_prompt: str,
                                     src: str = "", tgt: str = "", path_demonstrations:list = [], 
-                                    fewshot=5, n=1) -> list[BaseMessage]:
+                                    fewshot=5, n=1) -> List[BaseMessage]:
     messages = []
     fewshot_demonstrations = ""
     if fewshot>=1:

@@ -1,7 +1,7 @@
 defaults:
   - _self_
   - experiment: agent_test
-  - model: llama_2_7b_chat_hf
+  - model: llama_2_7b_hf
   - agent: link_click_dfs_back_agent
   - hydra: inference
 
@@ -16,6 +16,7 @@ logs_dir: ${work_dir}/logs
 agent_runs_file: ${hydra:runtime.output_dir}/agent_runs.tsv
 paths_real_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/paths_real_processed.tsv
 links_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/links.tsv
+pages_folder: ${data_dir}/wpcd/wp/
 
 # determines the log directory's parent folder
 experiment_name: inference

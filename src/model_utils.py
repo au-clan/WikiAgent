@@ -32,9 +32,6 @@ class BaseMessage:
             return {"author": _role, "content": self.content}
 
         return {"role": _role, "content": self.content}
-    
-    def prepare_for_completion(self):
-        return self.content
 
     def text(self):
         return self.content
@@ -61,11 +58,30 @@ class BaseMessage:
 @define
 class AIMessage(BaseMessage):
     role: str = "assistant"
+    
+    def prepare_for_completion(self):
+        return f"\nAssistant: {self.content}"
 
+@define
+class AIMessagePrefix(BaseMessage):
+    role: str = "assistant_prefix"
 
+    def prepare_for_completion(self):
+        return f"\nAssistant: {self.content}"
+    
+@define
+class AIMessageCompletion(BaseMessage):
+    role: str = "assistant_completion"
+
+    def prepare_for_completion(self):
+        return f"{self.content}"
+    
 @define
 class HumanMessage(BaseMessage):
     role: str = "user"
+
+    def prepare_for_completion(self):
+        return f"\nUser: {self.content}"
 
 
 @define
@@ -75,10 +91,12 @@ class SystemMessage(BaseMessage):
     def __add__(self, otherSystem):
         # i think this is the only class that will require adding.
         return SystemMessage(self.content + "\n" + otherSystem.content)
+    
+    def prepare_for_completion(self):
+        return f"{self.content}"
 
-@define
-class AIMessagePrefix(BaseMessage):
-    role: str = "assistant_prefix"
+
+
 
 
 @define
@@ -160,13 +178,13 @@ class ChatModel:
         # self.messages.append(response)
         return response
 
-    def _generate(self, data) -> AIMessage:
+    def _generate(self, data) -> BaseMessage:
         pass
 
     def _preprocess(self, data: List[BaseMessage]):
         pass
 
-    def _postprocess(self, data) -> AIMessage:
+    def _postprocess(self, data) -> BaseMessage:
         pass
 
     def _update_token_counts(self, prompt_messages, completion):
@@ -218,7 +236,6 @@ class ChatModel:
 
         tokens = len(enc.encode(str_to_estimate)) + msg_token_penalty
         ###
-        print("used tokens:", tokens)
         return tokens
 
     def check_context_len(self, context: List[BaseMessage], max_gen_tokens: int) -> bool:

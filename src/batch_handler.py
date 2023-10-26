@@ -19,7 +19,7 @@ class BatchHandler:
     responses: dict = field(factory=dict)
     debug_mode: bool = field(default=False)
 
-    async def send_prompt(self, agent_id: int, prompt: list[BaseMessage]) -> BaseMessage:
+    async def send_prompt(self, agent_id: int, prompt: List[BaseMessage]) -> BaseMessage:
         """Receive prompt from an agent, add it to the batch, and get the model's output."""
         response_event = asyncio.Event()
         await self.queue.put((agent_id, prompt, response_event))

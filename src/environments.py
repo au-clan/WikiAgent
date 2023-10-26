@@ -1,6 +1,7 @@
 import attr
 from attr import define, field
 import sys
+from typing import List
 sys.path.append("src/")
 from utils import load_links, wikify_article_name, un_wikify_article_name
 
@@ -70,7 +71,7 @@ class WikiEnvironment(Environment):
         self._set_content()
         self._set_links()
     
-    def remove_pages_from_links(self, pages: list[str]):
+    def remove_pages_from_links(self, pages: List[str]):
         """
         Removes pages from the candidate links.
         """
@@ -88,7 +89,7 @@ class WikiEnvironment(Environment):
             self._set_content()
             self._set_links()
         else:
-            raise Exception("Cannot go back any further.")
+            raise Exception("Cannot go back any further. Choose a different action.")
 
     
 @define

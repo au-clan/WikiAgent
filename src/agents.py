@@ -7,13 +7,14 @@ from attr import define, field
 import os
 import yaml
 import asyncio
-from model_utils import SystemMessage, HumanMessage, AIMessage, AIMessagePrefix, BaseMessage, printc_prompt
+from model_utils import SystemMessage, HumanMessage, AIMessage, AIMessagePrefix, BaseMessage, AIMessageCompletion, printc_prompt
 from environments import Environment
 from batch_handler import BatchHandler
 from utils import load_tsv_to_dict_list, printc, extract_json_from_response, wikify_article_name
 from time import time
 import pandas as pd
 import json
+from typing import List
 
 @define
 class Agent:
@@ -44,7 +45,7 @@ class Agent:
 
     fewshot: int = field(default=5)
     demonstrations_file: str = field(default=None)
-    prompt: list[BaseMessage] = field(factory=list)
+    prompt: List[BaseMessage] = field(factory=list)
 
     # data about a run
     num_actions: int = field(default=0)
@@ -53,6 +54,7 @@ class Agent:
     run_df = field(factory=pd.DataFrame)
     user_prompt_history = field(factory=list)
     response_history = field(factory=list)
+    raw_response_history = field(factory=list) # without assistant prefix
     action_history = field(factory=list)
     agent_runs_file: str = field(default=None) #should be hydra
 
@@ -89,7 +91,7 @@ class Agent:
     def set_agent_id(self, agent_id: int):
         self.agent_id = agent_id
         
-    def get_fewshot_demonstrations(self) -> list[str]:
+    def get_fewshot_demonstrations(self) -> List[str]:
         demos_list = self._load_fewshot_demonstrations_data()
         fewshot_demonstrations = []
         for demo in demos_list:
@@ -98,7 +100,7 @@ class Agent:
             fewshot_demonstrations.append(self.demonstration_template.format(replace = demo))
         return fewshot_demonstrations
 
-    def _load_fewshot_demonstrations_data(self) -> list[dict]:
+    def _load_fewshot_demonstrations_data(self) -> List[dict]:
         """
         The fewshot demonstrations file are agent type dependent.
         The output dict should have the same keys as the keywords in the user template.
@@ -112,7 +114,7 @@ class Agent:
         """
         raise NotImplementedError("Subclasses must implement the observe_environment method.")
     
-    def build_prompt(self, feedback: str = None) -> list[BaseMessage]:
+    def build_prompt(self, feedback: str = None) -> List[BaseMessage]:
         """
         Agent observes the environment and builds a prompt, that will be passed to the model.
         
@@ -121,15 +123,13 @@ class Agent:
                 Feedback from the user.
                 
         """
-        replace_dict = {"instructions": self.instructions}
+        replace_dict = {"instructions": self.instructions, "feedback_prefix": self.prompt_template['feedback_prefix']}
         user_message_content = ""
         if not feedback:
             if self.multiturn_demonstrations:
                 replace_dict['agent_description'] = self.agent_description.format(replace=replace_dict)
                 system_message_content = self.prompt_template['system'].format(replace=replace_dict)
 
-                if self.use_feedback:
-                    system_message_content += " " + self.prompt_template['feedback_prefix']
                 demos_list = self._load_fewshot_demonstrations_data()
                 
                 prompt = [SystemMessage(system_message_content)]
@@ -161,9 +161,9 @@ class Agent:
 
             prompt.append(user_message); prompt.append(assistant_prefix)
             self.prompt = prompt
-        else:
+        else: #got feedback
             # append bad response and feedback to the prompt
-            self.prompt.append(AIMessage(self.response_history[-1]))
+            self.prompt.append(AIMessageCompletion(self.raw_response_history[-1]))
             self.prompt.append(HumanMessage(feedback))
             self.prompt.append(AIMessagePrefix(self.assistant_prefix))
             prompt = self.prompt    
@@ -172,11 +172,11 @@ class Agent:
         
     def extract_actions(self, response: BaseMessage) -> dict:
         """ Processes the model output and returns a dict with the agent's choices."""
-        extracted_json = extract_json_from_response(response.content)
+        extracted_json = extract_json_from_response(self.assistant_prefix + response.content)
         if extracted_json:
             actions = json.loads(extracted_json)
         else:
-            actions = {}
+            raise Exception(f"Invalid output format. Please follow the correct format.")
         return actions
     
     def apply_actions(self, actions: dict):
@@ -206,6 +206,8 @@ class Agent:
         else:
             input_ = input("Response from model:")
             response = AIMessage(input_)
+        self.raw_response_history.append(response.content)
+        response.content = self.assistant_prefix + response.content
 
         printc(f"Agent {self.agent_id} received response. Time in queue: {time() - start} seconds. Response:\n{response}")
         self.response_history.append(response.content)
@@ -229,7 +231,7 @@ class WikiNavAgent(Agent):
     Virtual class for agents that navigate Wikipedia with a target page.
     """
     target_page: str = field(default=None)
-    visited_pages: list[str] = field(factory=list)
+    visited_pages: List[str] = field(factory=list)
 
     # features
     use_retry: bool = field(default=False)
@@ -327,7 +329,7 @@ class LinkClickAgent(WikiNavAgent):
     demonstrations_file: str = field(default="data/wikispeedia/wikispeedia_paths-and-graph/fewshot_click_demonstrations.tsv")
     fewshot_click_types: str = field(default='all_no_back')
 
-    def _load_fewshot_demonstrations_data(self) -> list[dict]:
+    def _load_fewshot_demonstrations_data(self) -> List[dict]:
         demos_df = pd.read_csv(self.demonstrations_file, sep='\t').fillna('NA')
         # remove src column
         demos_df = demos_df.drop(columns=['src'])
@@ -368,6 +370,7 @@ class LinkClickAgent(WikiNavAgent):
         Apply actions from the model.
         """
         # if 'click' not in actions:
+
         if 'next_page' not in actions:
             raise AssertionError(f"Invalid action: {actions}")
         else:

@@ -6,9 +6,9 @@ import regex
 import yaml
 import os
 from omegaconf import DictConfig
+from typing import List
 
-
-def get_paths_real_sample(n=100, paths_real_file='wikispeedia/wikispeedia_paths-and-graph/paths_real_processed.tsv') -> list[dict]:
+def get_paths_real_sample(n=100, paths_real_file='wikispeedia/wikispeedia_paths-and-graph/paths_real_processed.tsv') -> List[dict]:
     """
     Gets a sample of unique paths from the paths_real_processed.tsv file.
     Note: right now returns only the src and tgt pages.
@@ -39,7 +39,7 @@ def effective_path(path_str: str) -> str:
             i += 1
     return ";".join(effective_path)
 
-def load_tsv_to_dict_list(file: str) -> list[dict]:
+def load_tsv_to_dict_list(file: str) -> List[dict]:
     """
     Loads a .tsv file into a list of dictionaries.
     """

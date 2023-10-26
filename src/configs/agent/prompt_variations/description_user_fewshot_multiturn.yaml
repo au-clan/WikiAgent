@@ -25,8 +25,8 @@ instructions: |
   {"next_page": "<chosen page for user to click on>"}
   Ensure the response can be parsed by Python json.loads
 
-user_initial_prefix: |-
-  {replace[instructions]}
+user_initial_prefix: |
+  {replace[instructions]}{replace[feedback_prefix]}
 
 user_template: |-
   {{"source": "{replace[src]}", "target": "{replace[tgt]}", "links": "{replace[links]}"}}

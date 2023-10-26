@@ -4,6 +4,7 @@ from WikiNav.deprecated.prompt_utils import wikify_article_name
 import pandas as pd
 from pprint import pprint
 from utils import load_links
+from typing import List
 
         
 def check_path(src, tgt, generated_path, links_file="data/wikispeedia/wikispeedia_paths-and-graph/links.tsv", check_clicks=True):
@@ -33,7 +34,7 @@ def check_path(src, tgt, generated_path, links_file="data/wikispeedia/wikispeedi
     else:
         return gen_path_list, 0, "Valid path, but couldn't reach the target"
 
-def get_path_demonstrations(path_demonstrations_file='data/wikispeedia/wikispeedia_paths-and-graph/path_demonstrations.tsv') -> list[dict]:
+def get_path_demonstrations(path_demonstrations_file='data/wikispeedia/wikispeedia_paths-and-graph/path_demonstrations.tsv') -> List[dict]:
     """
     Gets the paths from the path_demonstrations.tsv file. Only keeps the effective path.
     """

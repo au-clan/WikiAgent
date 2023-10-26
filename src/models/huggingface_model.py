@@ -7,8 +7,8 @@ import sys
 sys.path.append("src/")
 # fix for importing pytorch: https://github.com/pytorch/pytorch/issues/78490
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
-from transformers import pipeline, StoppingCriteria, StoppingCriteriaList
-from model_utils import BaseMessage, ChatModel, AIMessage, SystemMessage, HumanMessage
+from transformers import pipeline, StoppingCriteria, StoppingCriteriaList, AutoModelForCausalLM, AutoTokenizer
+from model_utils import BaseMessage, ChatModel, AIMessage, SystemMessage, HumanMessage, AIMessageCompletion
 from utils import printc
 import torch
 
@@ -18,6 +18,7 @@ LLAMA_PROMPT_FORMAT = {
     "user": "<s>"+B_INST+" {content} "+E_INST+" ",
     "assistant": "{content} </s>",
     "assistant_prefix": "{content}",
+    "assistant_completion": "{content} </s>",
 }
 
 SPECIAL_TAGS = [B_INST, E_INST, "<<SYS>>", "<</SYS>>"]
@@ -59,25 +60,22 @@ class HuggingFaceModel(ChatModel):
             # turn single input into a batch
             data = [data]
 
-        if "chat" in self.model_name:
+        if "chat" in self.model_name: ###
             msges = [[k.prepare_for_generation() for k in data]
                         for data in data]
             concat_msges = [preprocess_llama_chat(msg) for msg in msges]
             self.raw_prompt = concat_msges
 
-            # return self.tokenizer(concat_msges)
-            return concat_msges
+        else:
+                msges = [[k.prepare_for_completion() for k in data]
+                                for data in data]
+                concat_msges = [''.join(msg) for msg in msges]
+                # for msg in msges:
+                #     concat_msges += msg + "\n"
 
-        # TODO: fix this for non chat models
-        # msges = [k.prepare_for_completion() for k in messages]
-        # concat_msges = ""
-        # for msg in msges:
-        #     concat_msges += msg + "\n"
-
-        # self.prompt_tokens = self.estimate_tokens(concat_msges)
-        # self.raw_prompt = concat_msges
-        # return self.tokenize(concat_msges)
-        return None
+        self.prompt_tokens = self.estimate_tokens(concat_msges)
+        self.raw_prompt = concat_msges
+        return self.tokenize(concat_msges)
 
     def _generate(self, data):
         """
@@ -90,51 +88,56 @@ class HuggingFaceModel(ChatModel):
             stopping_criteria = self.get_stopping_criteria()
         else:
             stopping_criteria = None
-        for d in data:
-            printc(f"\ninput: {d}", c="g")
-        outputs = self.generator(data,
-                                 max_new_tokens=self.context_max_tokens,
-                                 pad_token_id=self.tokenizer.eos_token_id,
-                                 do_sample=self.do_sample, 
-                                 top_p=self.top_p,
-                                 temperature=self.temperature,
-                                 stopping_criteria=stopping_criteria,)#[:, data.shape[1]:]
-        # outputs = self.model.generate(data,
-        #                               max_new_tokens=self.context_max_tokens,
-        #                               pad_token_id=self.tokenizer.eos_token_id,
-        #                               temperature=self.temperature,
-        #                               do_sample=self.do_sample, top_p=self.top_p,)[:, data.shape[1]:]
-        # printc(f"model outputs: {outputs}", c="g")
-        for output in outputs:
-            printc(f"\noutput: {output}", c="p")
-        output = self._postprocess(outputs)
-        token_list = self.tokenizer.encode(output[0].content)
+        printc(f"prompt:", c="g")
+        printc(self.raw_prompt[0], c="g")
+        # outputs = self.generator(data,
+        #                          max_new_tokens=self.context_max_tokens,
+        #                          pad_token_id=self.tokenizer.eos_token_id,
+        #                          do_sample=self.do_sample, 
+        #                          top_p=self.top_p,
+        #                          temperature=self.temperature,
+        #                          stopping_criteria=stopping_criteria,)#[:, data.shape[1]:]
+        with torch.no_grad():
+            generated_ids = self.model.generate(**data,
+                                        #max_new_tokens=self.context_max_tokens,
+                                        pad_token_id=self.tokenizer.eos_token_id,
+                                        temperature=self.temperature,
+                                        do_sample=self.do_sample, 
+                                        top_p=self.top_p,
+                                        stopping_criteria=stopping_criteria)#[:, data.shape[1]:]
+        output = self._postprocess(data, generated_ids)
+        # printc(f"output: {output}", c="g")
+        #token_list = self.tokenizer.encode(output[0].content)
         # printc(f"output tokens: {[(token_list[i], self.tokenizer.decode(token_list[i])) for i in range(len(token_list))]}", c="g")
         return output
 
-    def _postprocess(self, outputs) -> AIMessage:
+    def _postprocess(self, data, outputs) -> List[BaseMessage]:
         """
         This method postprocesses the outputs, decoding them into AIMessages.
         """
         processed_outputs = []
-        if "chat" in self.model_name:
-            for output in outputs:
-                output = output[0]["generated_text"].split(E_INST)[-1]
-                processed_outputs.append(AIMessage(output.strip()))
-
+        # if "chat" in self.model_name:
+        #     for output in outputs:
+        #         output = output[0]["generated_text"].split(E_INST)[-1]
+        #         processed_outputs.append(AIMessageCompletion(output.strip()))
+        # else:
+        # keep only new tokens
+        # printc(f"data['input_ids'][i].shape[0]: {data['input_ids'][0].shape[0]}", c="p")
+        # printc(f"outputs:{outputs}", c="p")
+        outputs = [outputs[i][data['input_ids'][i].shape[0]:] for i in range(data['input_ids'].shape[0])]
+        processed_outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=False)
+        processed_outputs = [AIMessageCompletion(output.strip()) for output in processed_outputs]
+            
         return processed_outputs
     
-    def tokenize(self, message: str):
+    def tokenize(self, messages: List[str]):
         """
         This method tokenizes the input message.
         """
-        token_input = self.tokenizer.encode(message,
-                                            return_tensors='pt',
-                                            padding=True,
-                                            max_length=700,
-                                            truncation=True)
-        if self.device == "cuda":
-            token_input = token_input.cuda()
+        token_input = self.tokenizer(messages,
+                                    return_tensors='pt',
+                                    padding='longest')
+        token_input = token_input.to(self.model.device)
         
         return token_input
     
@@ -143,23 +146,40 @@ class HuggingFaceModel(ChatModel):
         This method initializes the model and tokenizer.
         """
         if self.device=="cpu":
-            self.generator = pipeline("text-generation", model=self.model_path if self.model_path else self.model_name,
-                                                            tokenizer=self.model_path if self.model_path else self.model_name,
-                                                            batch_size=self.batch_size, 
-                                                            device= -1)
+            self.model = AutoModelForCausalLM.from_pretrained(self.model_path if self.model_path else self.model_name,
+                                                          torch_dtype=torch.float32,)
+            self.model.to("cpu")
+            # self.generator = pipeline("text-generation", model=self.model_path if self.model_path else self.model_name,
+            #                                                 tokenizer=self.model_path if self.model_path else self.model_name,
+            #                                                 batch_size=self.batch_size, 
+            #                                                 device= -1)
             torch.set_num_threads(self.num_threads)
         else: # cuda device
-            self.generator = pipeline("text-generation", model=self.model_path if self.model_path else self.model_name,
-                                                    tokenizer=self.model_path if self.model_path else self.model_name,
-                                                    batch_size=self.batch_size, 
-                                                    torch_dtype = torch.float16 if self.half_precision else torch.float32,
-                                                    device_map="auto")
+            self.model = AutoModelForCausalLM.from_pretrained(self.model_path if self.model_path else self.model_name,
+                                                          device_map="auto",
+                                                          torch_dtype=torch.float16 if self.half_precision else torch.float32,)
+        
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_path if self.model_path else self.model_name, 
+                                                       use_fast=True) # this is important, otherwise batching doesnt work
+
+            # self.generator = pipeline("text-generation", model=self.model_path if self.model_path else self.model_name,
+            #                                         tokenizer=self.model_path if self.model_path else self.model_name,
+            #                                         batch_size=self.batch_size, 
+            #                                         torch_dtype = torch.float16 if self.half_precision else torch.float32,
+            #                                         device_map="auto")
         if "llama" in self.model_name.lower():
-            self.generator.tokenizer.pad_token = "[PAD]"
-            self.generator.tokenizer.padding_side = "left"
+            self.tokenizer.pad_token = "[PAD]"
+            self.tokenizer.padding_side = "left"
         else:
-            self.generator.tokenizer.pad_token_id = self.tokenizer.eos_token_id            
-        self.tokenizer = self.generator.tokenizer
+            self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
+        # if "llama" in self.model_name.lower():
+        #     self.generator.tokenizer.pad_token = "[PAD]"
+        #     self.generator.tokenizer.padding_side = "left"
+        # else:
+        #     self.generator.tokenizer.pad_token_id = self.tokenizer.eos_token_id            
+        # self.tokenizer = self.generator.tokenizer
+
+
 
     def get_stopping_criteria(self):
         # printc(f"stop_word: {(self.stop_token, self.tokenizer.decode(self.stop_token))}", c="g")
@@ -201,7 +221,7 @@ class CustomStoppingCriteria(StoppingCriteria):
         last_id = input_ids[:,-1].tolist()
         # we have to check if the string is in the stops cause there's multiple tokens that have }
         last_str = self.tokenizer.decode(last_id)
-        #printc(f"last_id: {last_id}, stop: {self.stop}, stop in last_str:{self.stop in last_str}", c="g")     
+        # printc(f"last_id: {last_id}, last_str: {last_str}, stop: {self.stop}, stop in last_str:{self.stop in last_str}", c="g")     
         return self.stop in last_str
 
 if __name__ == "__main__":
