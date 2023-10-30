@@ -21,6 +21,13 @@ LLAMA_PROMPT_FORMAT = {
     "assistant_completion": "{content} </s>",
 }
 
+MISTRAL_PROMPT_FORMAT = { # with Mistral Instruct models, the system prompt is included in the first user prompt.
+    "user": "<s>"+B_INST+" {content} "+E_INST+" ",
+    "assistant": "{content} </s>",
+    "assistant_prefix": "{content}",
+    "assistant_completion": "{content} </s>",
+}
+
 SPECIAL_TAGS = [B_INST, E_INST, "<<SYS>>", "<</SYS>>"]
 UNSAFE_ERROR = "Error: special tags are not allowed as part of the prompt."
 
@@ -60,10 +67,13 @@ class HuggingFaceModel(ChatModel):
             # turn single input into a batch
             data = [data]
 
-        if "chat" in self.model_name: ###
+        if "chat" in self.model_name.lower() or "instruct" in self.model_name.lower(): ###
             msges = [[k.prepare_for_generation() for k in data]
                         for data in data]
-            concat_msges = [preprocess_llama_chat(msg) for msg in msges]
+            if "mistral" in self.model_name.lower():
+                concat_msges = [preprocess_mistral_chat(msg) for msg in msges]
+            else:
+                concat_msges = [preprocess_llama_chat(msg) for msg in msges]
             self.raw_prompt = concat_msges
 
         else:
@@ -206,6 +216,23 @@ def preprocess_llama_chat(dialog):
     for msg in dialog:
         if msg["role"] in LLAMA_PROMPT_FORMAT:
             dialog_list.append(LLAMA_PROMPT_FORMAT[msg["role"]].format(content=msg["content"]))
+        else:
+            raise ValueError(f"Invalid role: {msg['role']}")
+    dialog_text = "".join(dialog_list)
+    return dialog_text
+
+def preprocess_mistral_chat(dialog):
+    """ Same as preprocess_llama_chat but for Mistral Instruct models. """
+    # If the first role is a system role, join the system content and the next content
+    # Join the system content to the first user content
+    if dialog[0]["role"] == "system":
+        formatted_content = dialog[0]["content"] + " " + dialog[1]["content"]
+        dialog = [{"role": dialog[1]["role"], "content": formatted_content}] + dialog[2:]
+
+    dialog_list = []
+    for msg in dialog:
+        if msg["role"] in MISTRAL_PROMPT_FORMAT:
+            dialog_list.append(MISTRAL_PROMPT_FORMAT[msg["role"]].format(content=msg["content"]))
         else:
             raise ValueError(f"Invalid role: {msg['role']}")
     dialog_text = "".join(dialog_list)

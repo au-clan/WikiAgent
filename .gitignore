@@ -9,3 +9,4 @@ data/wikispeedia/
 data/wikispeedia_paths-and-graph/
 data/wpcd/
 nohup.out
+*.log

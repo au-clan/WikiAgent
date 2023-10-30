@@ -1,7 +1,7 @@
 defaults:
   - _self_
   - experiment: agent_test
-  - model: llama_2_7b_hf
+  - model: llama_2_7b_chat_hf
   - agent: link_click_dfs_back_agent
   - hydra: inference
 

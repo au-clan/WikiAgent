@@ -32,7 +32,7 @@ user_template: |-
   {{"source": "{replace[src]}", "target": "{replace[tgt]}", "links": "{replace[links]}"}}
   
 assistant_prefix: |-
-  {"
+  {"next_page": "
 
 demonstration_template: |-
   {{"next_page": "{replace[click]}"}}

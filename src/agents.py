@@ -15,6 +15,7 @@ from time import time
 import pandas as pd
 import json
 from typing import List
+import lmql
 
 @define
 class Agent:
@@ -426,3 +427,13 @@ class LinkClickDFSAgent(LinkClickAgent):
                 except Exception as e:
                     raise e
     
+@define 
+class LMQLAgent(WikiNavAgent):
+
+    @lmql.query
+    async def lmql_query(prompt):
+        '''lmql
+        {prompt}
+        """{{"next_page": "[NEXT_PAGE]"}}"""
+        return NEXT_PAGE
+        '''
