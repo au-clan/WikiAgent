@@ -1,4 +1,4 @@
-#from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup
 from bs4 import Comment
 import re
 
@@ -57,7 +57,7 @@ def clean_sub(sub):
 
 def clean_link(link):
     if "href" in link.attrs:
-        clean_text = link.text + "[*" + href2page(link.attrs["href"]) + "*]"
+        clean_text = link.text + " [*" + href2page(link.attrs["href"]) + "*]"
     else:
         clean_text=""
     return clean_text
@@ -146,6 +146,8 @@ def clean(part, i, document, removed_parts = ["script", "map"], current_list_ord
         # Creates a table row
         elif tag == "tr":
             clean_text += clean(clean_row(element), i, document)
+        elif tag == "tbody":
+            clean_text += clean(clean_row(element), i, document)
         # Sets the table row's header
         elif tag == "th":
             clean_text += "\t" + clean(element.contents, i, document)
@@ -215,7 +217,7 @@ def clean(part, i, document, removed_parts = ["script", "map"], current_list_ord
         elif tag in ["head", "html", "body"]:
             clean_text += "\n\n" + clean(element.contents, i, document)
         elif tag in ["h1", "h2", "h3", "h4", "h5", "h6"]:
-            clean_text += "\n"+clean_heading(element)
+            clean_text += "\n"+clean(element.contents, i, document)
         else :
             print("Problem : Document {} in part {}".format(document, i))
             print("ELEMENT : {}".format(element))
@@ -240,3 +242,11 @@ def create_body_parts(body):
         except AttributeError:
             break
     return parts
+
+def clean_text(text):
+    """
+    Given an html text it cleans it using the html2text implementation
+    """
+    doc = BeautifulSoup(text, "html.parser")
+    clean_text = clean(doc, 0, 0)
+    return clean_text

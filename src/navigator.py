@@ -1,12 +1,20 @@
-import tiktoken
+import tiktoken, os
 from bs4 import BeautifulSoup
+import pandas as pd
+
+from selenium.webdriver.common.by import By
 
 # Custom 
-from html2text import clean
+from html2text_ import clean, clean_text
+from utils import get_links, waitForDownload, delete_file_if_exists, getActiveText
 from utils import page2href, get_links
 
 
 class NavigatorHTML:
+    """
+    First implementation of the HTML Navigator.
+    Moves from page to page by just transforming html to text.
+    """
     def __init__(self, pages_path, encoding_model="cl100k_base", token_window=300, overlap=0.1):
         self.pages_path = pages_path
         self.encoder = tiktoken.get_encoding(encoding_model)
@@ -82,3 +90,130 @@ class NavigatorHTML:
             return True
         else:
             return False
+                
+                
+class WebNavigatorHTML:
+    """
+    Second implementation of the HTML Navigator.
+    Opens the page in a browser and moves by interacting with the page.
+    """
+    def __init__(self, driver, source, downloads_folder):
+        self.driver = driver
+        self.driver.get(source)
+        file_name = "active_elements.json" # Name of the file downloaded - Defined already by JS
+        self.file_path = os.path.join(downloads_folder, file_name)
+        self.df = None
+        self.active_updated= True
+
+    def movePage(self, page):
+        """
+        Given the name of a page, it firstly translates it to the corresponding link and then
+        clicks on it, if it's in the current page.
+        """
+        link = "../../wp/" + page[0].lower() +"/" + page + ".htm"
+        try :
+            element = self.driver.find_element(By.CSS_SELECTOR, "a[href='{}']".format(link))
+            element.click()
+            self.active_updated= True
+        except :
+            print("Link for '{}' [{}] not found in the page !".format(page, link))
+
+    def moveUp(self):
+        """
+        Move the active window up
+        """
+        up_button = self.driver.find_element(By.ID, "goUp")
+        up_button.click()
+        self.active_updated = True
+
+    def moveDown(self):
+        """
+        Move the active window down.
+        """
+        down_button = self.driver.find_element(By.ID, "goDown")
+        down_button.click()
+        self.active_updated = True
+
+    def moveBack(self):
+        """
+        Move back once in the browser history.
+        """
+        self.driver.back()
+        self.active_updated = True
+
+    def moveForward(self):
+        """
+        Move forward once in the browser history.
+        """
+        self.driver.forward()
+        self.active_updated = True
+
+    def downloadActive(self):
+        """
+        Clicks on the "get" button to download the active elements.
+        """
+        get_button = self.driver.find_element(By.ID, "get")
+        get_button.click()
+
+    def quit(self):
+        """
+        Quits the navigator.
+        """
+        self.driver.quit()
+        
+    ###---Main---###
+    def updateActive(self, verbose = False):
+        """
+        Main function to update the active elements.
+            1. Download active elements (json file).
+            2. Load elements to df.
+            3. Get text from elements.
+            4. Compute active text from each element.
+            5. Compute active links from each active element.
+        """
+        # If a file exists it has to be deleted
+        delete_file_if_exists(file_path = self.file_path)
+        # Download active elements
+        self.downloadActive()
+        # Wait for elements to be downloaded
+        waitForDownload(self.file_path)
+        # Load elemnts to df
+        df = pd.read_json(self.file_path)
+        # Active area
+        df["active"] = df.apply(lambda x: 1-x["skipTop"]-x["skipBot"], axis=1)
+        # html -> text
+        df["text"] = df["elements"].apply(clean_text)
+        df["activeText"] = df.apply(lambda x : getActiveText(x["text"], x["tag"], x["skipTop"], x
+        ["skipBot"], x["active"]), axis=1)
+        df["activeLinks"] = df["activeText"].apply(get_links)
+        self.df = df
+        self.active_updated = False
+        if verbose:
+            self.getText()
+    
+    def getText(self):
+        """
+        Get the text from the active elements.
+        """
+        if self.active_updated:
+            self.updateActive()
+        active_text = ("\n").join(self.df["activeText"])
+        return active_text
+    
+    def getHTML(self):
+        """
+        Get the html from the active elements.
+        """
+        if self.active_updated:
+            self.updateActive()
+        html = ("\n").join(self.df["elements"])
+        return html
+    
+    def getLinks(self):
+        """
+        Get the links from the active elements.
+        """
+        if self.active_updated:
+            self.updateActive()
+        links = self.df["activeLinks"].explode().dropna().tolist()
+        return links

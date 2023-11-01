@@ -1,14 +1,17 @@
 import hydra
 import json, re
-from urllib.parse import unquote
-import pandas as pd
 import regex
 import yaml
 import os
+import pandas as pd
 from omegaconf import DictConfig
-from typing import List
+from math import floor, ceil
+from bs4 import BeautifulSoup
+from urllib.parse import unquote
+from time import sleep
 
-def get_paths_real_sample(n=100, paths_real_file='wikispeedia/wikispeedia_paths-and-graph/paths_real_processed.tsv') -> List[dict]:
+
+def get_paths_real_sample(n=100, paths_real_file='wikispeedia/wikispeedia_paths-and-graph/paths_real_processed.tsv') -> list[dict]:
     """
     Gets a sample of unique paths from the paths_real_processed.tsv file.
     Note: right now returns only the src and tgt pages.
@@ -39,7 +42,7 @@ def effective_path(path_str: str) -> str:
             i += 1
     return ";".join(effective_path)
 
-def load_tsv_to_dict_list(file: str) -> List[dict]:
+def load_tsv_to_dict_list(file: str) -> list[dict]:
     """
     Loads a .tsv file into a list of dictionaries.
     """
@@ -222,3 +225,61 @@ def get_field_from_json(json_str, field='Path'):
         return path
     except:
         return ""   
+    
+def waitForDownload(file_path, verbose=False):
+    """
+    Given a file path, this function waits until the file is downloaded
+    """
+    if verbose:
+        print("Waiting for '{}' to be downloaded ...".format(file_path))
+    while not os.path.exists(file_path):
+        sleep(0.2)
+    if verbose:
+        print("File '{}' downloaded !".format(file_path))
+        
+def delete_file_if_exists(file_path):
+    """
+    Given a file path, this function deletes the file if it exists
+    """
+    if os.path.exists(file_path):
+        try:
+            os.remove(file_path)
+        except OSError as e:
+            print(f"Error deleting {file_path}: {e}")
+    else:
+        print(f"File '{file_path} ' does not exist.")
+
+def getActiveParagraph(text, skipTop, skipBot):
+    """
+    Given a text coming from a paragraph, it returns the active text
+    Inputs
+        - text [str]: text from a paragraph
+        - skipTop [float]: proportion of text to skip from the top
+        - skipBot [float]: proportion of text to skip from the bottom
+    Outputs
+        - activeText [str]: active text
+    """
+    words = text.split(" ")
+    n = len(words)
+    activeText = " ".join(words[ceil(skipTop*n):len(words)-(floor(skipBot*n))])
+    return activeText
+
+def getActiveText(text, tag, skipTop, skipBot, active):
+    """
+    Given a text and the active proportions it returns the active text
+    Inputs
+        - text [str]: text
+        - tag [str]: tag of the text (eg. "P", "H1", ...)
+        - skipTop [float]: proportion of text to skip from the top
+        - skipBot [float]: proportion of text to skip from the bottom
+        - active [float]: active proportion of text to keep
+    Outputs
+        - activeText [str]: active text
+    """
+    if tag=="P":
+        activeText = getActiveParagraph(text, skipTop, skipBot)
+    elif active>=0.5:
+        activeText = text
+    else:
+        activeText = ""
+    return activeText
