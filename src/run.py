@@ -20,8 +20,8 @@ os.environ['HYDRA_FULL_ERROR'] = '1'
 
 async def main(cfg: DictConfig):
     start = time()
-    model = instantiate(cfg.model)
-    handler = BatchHandler(model=model, batch_size=cfg.model.batch_size)
+    # model = instantiate(cfg.model)
+    # handler = BatchHandler(model=model, batch_size=cfg.model.batch_size)
     paths_real = get_paths_real_sample(n=cfg.experiment.num_agents, paths_real_file=cfg.paths_real_file)
 
     agents = []
@@ -29,30 +29,27 @@ async def main(cfg: DictConfig):
     for i,path in enumerate(paths_real):
         env = LinkWikiEnviroment(path["src"], links_file=cfg.links_file)
         agent = instantiate(cfg.agent)
+        agent.model_cfg=cfg.model
         agent.set_environment(env)
-        agent.set_handler(handler)
+        # agent.set_handler(handler)
         agent.set_target_page(path["tgt"])
         agent.set_agent_id(i)
         agents.append(agent)
         envs.append(env)
 
     agent_tasks = [asyncio.create_task(agent.run()) for agent in agents]
-    batch_processor = asyncio.create_task(handler.process_batch())
+    # batch_processor = asyncio.create_task(handler.process_batch())
 
     try:
-        results = await asyncio.gather(*agent_tasks, batch_processor, return_exceptions=False)
-        batch_processor.cancel()
+        # results = await asyncio.gather(*agent_tasks, batch_processor, return_exceptions=False)
+        results = await asyncio.gather(*agent_tasks, return_exceptions=False)
+        # batch_processor.cancel()
         print(f"Run finished with {results.count(True)} successes and {results.count(False)} failures.")
     except Exception as e:
         raise e
-
-        
-
  
-    print(f"Total time taken: {time() - start} seconds")
-    # model_output_df = pd.concat([model_output_df, pd.DataFrame({'src': path["src"], 'tgt': path["tgt"], 'human_path': path["output"],
-    #                                                             'model_output': response, 'history': model.get_history_str(),
-    #                                                             'temperature': model.temperature, 'top_p': model.top_p}, index=[0])], ignore_index=True)
+    print(f"Total time taken: {time() - start:.1f} seconds")
+    print(f"Average time per action: {(time() - start) / sum([agent.num_actions for agent in agents]):.2f}s for {sum([agent.num_actions for agent in agents])} actions")
 
 def hydra_wrapper(func):
     @hydra.main(version_base = None, config_path="configs", config_name="config")

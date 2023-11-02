@@ -14,9 +14,10 @@ conda activate ../miniconda3/envs/wikinav #|| { echo "Failed to activate conda e
 
 python src/run.py \
     --multirun model.device=cuda model.half_precision=True model.batch_size=1 \
-    model.temperature=0.2,0.5,1,1.5 \
-    run_name=temperature_tests \
-    > temperature_tests.log 2>&1
+    model.temperature=0.2,0.7,0.5,1,1.5 \
+    agent=link_click/dfs_back_reason \
+    run_name=reason_temperatures \
+    > reason_temperatures.log 2>&1
 
 # python src/run.py \
 #     --multirun model.device=cuda model.half_precision=True model.batch_size=1 model=llama_2_7b_chat_hf\

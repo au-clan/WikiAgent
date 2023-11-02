@@ -196,7 +196,8 @@ class HuggingFaceModel(ChatModel):
         
         return [CustomStoppingCriteria(stop=self.stop, tokenizer=self.tokenizer)]
 
-def preprocess_llama_chat(dialog):
+# can be a list of BaseMessage or list of dict, put this in type hint
+def preprocess_llama_chat(dialog: Union[List[BaseMessage], List[dict]]):
     """
     This function preprocesses a chat dialog by joining the dialog into a single formatted string.
     
@@ -206,6 +207,9 @@ def preprocess_llama_chat(dialog):
     Returns:
     str: a formatted string containing the chat dialog.
     """
+    if isinstance(dialog[0], BaseMessage):
+        dialog = [msg.prepare_for_generation() for msg in dialog]
+
     # If the first role is a system role, join the system content and the next content
     # And replace the first two items in dialog with joined content (list of dict)
     if dialog[0]["role"] == "system":
@@ -221,8 +225,11 @@ def preprocess_llama_chat(dialog):
     dialog_text = "".join(dialog_list)
     return dialog_text
 
-def preprocess_mistral_chat(dialog):
+def preprocess_mistral_chat(dialog: Union[List[BaseMessage], List[dict]]):
     """ Same as preprocess_llama_chat but for Mistral Instruct models. """
+    if isinstance(dialog[0], BaseMessage):
+        dialog = [msg.prepare_for_generation() for msg in dialog]
+        
     # If the first role is a system role, join the system content and the next content
     # Join the system content to the first user content
     if dialog[0]["role"] == "system":

@@ -8,6 +8,7 @@ import os
 import yaml
 import asyncio
 from model_utils import SystemMessage, HumanMessage, AIMessage, AIMessagePrefix, BaseMessage, AIMessageCompletion, printc_prompt
+from models.huggingface_model import preprocess_llama_chat
 from environments import Environment
 from batch_handler import BatchHandler
 from utils import load_tsv_to_dict_list, printc, extract_json_from_response, wikify_article_name
@@ -15,7 +16,6 @@ from time import time
 import pandas as pd
 import json
 from typing import List
-import lmql
 
 @define
 class Agent:
@@ -62,12 +62,6 @@ class Agent:
 
     def __attrs_post_init__(self):
         self.prompt_template = self._load_from_template_file(self.base_template_file, 'prompt')
-        if not self.demonstration_template:
-            self.demonstration_template = self._load_from_template_file(self.template_file, 'demonstration_template')
-        if not self.agent_description:
-            self.agent_description = self._load_from_template_file(self.template_file, 'agent_description')
-        if not self.user_template:
-            self.user_template = self._load_from_template_file(self.template_file, 'user_template')
 
     def to_dict(self):
         # Create a dictionary manually
@@ -237,7 +231,6 @@ class WikiNavAgent(Agent):
     # features
     use_retry: bool = field(default=False)
     use_reasoning: bool = field(default=False)
-    use_backtrack: bool = field(default=False) # backtracking
 
     # finishing conditions
     max_tries: int = field(default=3) # retry same prompt
@@ -300,6 +293,7 @@ class WikiNavAgent(Agent):
                 self.num_actions += 1
                 self.num_tries = 0
             except Exception as e:
+                raise e
                 printc(f"Error in agent {self.agent_id}: {e}", c="r")
                 self.action_history.append(str(e))
                 self.num_actions += 1
@@ -426,14 +420,4 @@ class LinkClickDFSAgent(LinkClickAgent):
                     self.visited_pages.append(self.environment.current_page)
                 except Exception as e:
                     raise e
-    
-@define 
-class LMQLAgent(WikiNavAgent):
 
-    @lmql.query
-    async def lmql_query(prompt):
-        '''lmql
-        {prompt}
-        """{{"next_page": "[NEXT_PAGE]"}}"""
-        return NEXT_PAGE
-        '''

@@ -1,6 +1,7 @@
 _target_: models.huggingface_model.HuggingFaceModel
 model_provider: huggingface
 model_name: gpt2
+model_path:
 
 temperature: 0.7
 half_precision: False #set to False if on CPU
