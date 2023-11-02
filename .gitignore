@@ -1,5 +1,6 @@
 outputs/
 logs/
+*.out
 *.pyc
 *.tsv
 *.csv
