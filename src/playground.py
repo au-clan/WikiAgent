@@ -15,7 +15,7 @@ from agents import *
 from lmql_agents import *
 from batch_handler import BatchHandler
 from models.huggingface_model import *
-from navigator import NavigatorHTML
+from navigator import WebNavigatorHTML
 import lmql
 import torch
 
@@ -142,11 +142,6 @@ async def test_run(cfg: DictConfig):
             print("result:",result)
     except Exception as e:
         raise e
-
-def navigate(cfg: DictConfig):
-    nav = NavigatorHTML(pages_path=cfg.pages_folder, token_window=300, overlap=0.1)
-    nav.set_curr_doc("United_States")
-    print(nav.window_text)
 
 def rellm_test():
     import regex
@@ -291,6 +286,30 @@ async def lmql_agent_test(cfg: DictConfig):
     print(response)
     print("Time:", time() - start)
 
+def navigate():
+    import sys, random, os
+    from pathlib import Path
+    import pandas as pd
+    from selenium import webdriver
+    from time import sleep
+    sys.path.append('../')
+    from navigator import WebNavigatorHTML
+    from utils import format_path
+
+    def format_source(page):
+        source = "file://" + str(Path(os.getcwd()).parents[1]) + "/data/wpcd/wp/{}/{}.htm".format(page.lower()[0], page)
+        return source
+    current = "United States"
+    downloads_folder = "../data/downloads"
+
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    options.add_argument('--disable-gpu')  # Necessary for running in headless mode on some systems
+    options.add_argument('--no-sandbox') 
+    driver = webdriver.Chrome(options=options)
+
+    nav = WebNavigatorHTML(driver, source=format_source(current), downloads_folder=downloads_folder)
+
 if __name__ == "__main__":
-    # lmql_test()
-    hydra_wrapper(lmql_agent_test)
+    # navigate()
+    hydra_wrapper(test_run)

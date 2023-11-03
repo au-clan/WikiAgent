@@ -11,6 +11,31 @@ class LMQLLinkClickDFSAgent(LinkClickDFSAgent):
     model_cfg: dict = field(default=None)
 
     @lmql.query(output_writer=lmql.printing)
+    async def lmql_query_reason(self, prompt: str, candidates: List[str]):
+        #
+        '''lmql
+        sample(n=1, temperature=self.model_cfg['temperature'], top_p=self.model_cfg['top_p'], max_len=2048)
+            "{prompt}"
+            """{{"reason": "The 5 most relevant pages to {self.target_page} are: """
+
+            relevant_links = []
+            for i in range(5):
+                '{i+1}.[relevant_link]: [explanation]' where relevant_link in set(candidates) and stops_at(explanation, '.') and stops_before(explanation, '"')
+                relevant_links.append(relevant_link)
+                if i < 4:
+                    ';'
+
+            """ Therefore, [reason], "next_page": "[next_page]"}}""" where next_page in set(relevant_links) and len(TOKENS(reason)) < 150 and stops_before(reason, '"') and stops_before(reason, '\n')
+            
+        
+        from
+            lmql.model(f"local:{self.model_cfg['model_path']}" if self.model_cfg['model_path'] else f"local:{self.model_cfg['model_name']}", 
+            cuda=True if self.model_cfg['device']=='cuda' else False, 
+            batch_size=self.model_cfg['batch_size'],
+            dtype='float16' if self.model_cfg['half_precision'] else 'float32',)
+        '''
+
+    @lmql.query
     async def lmql_query(self, prompt: str, candidates: List[str]):
         #
         '''lmql
@@ -20,12 +45,12 @@ class LMQLLinkClickDFSAgent(LinkClickDFSAgent):
 
             relevant_links = []
             for i in range(5):
-                '{i+1}.[relevant_link]: [explanation]' where relevant_link in set(candidates)
+                '{i+1}.[relevant_link]: [explanation]' where relevant_link in set(candidates) and stops_at(explanation, '.') and stops_before(explanation, '"')
                 relevant_links.append(relevant_link)
                 if i < 4:
                     ';'
 
-            """. Therefore, [reason], "next_page": "[next_page]"}}""" where next_page in set(relevant_links) and len(TOKENS(reason)) < 150 and stops_before(reason, '"') and stops_before(reason, '\n')
+            """ Therefore, [reason], "next_page": "[next_page]"}}""" where next_page in set(relevant_links) and len(TOKENS(reason)) < 150 and stops_before(reason, '"') and stops_before(reason, '\n')
             
         
         from

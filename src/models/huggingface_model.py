@@ -100,6 +100,7 @@ class HuggingFaceModel(ChatModel):
             stopping_criteria = None
         printc(f"prompt:", c="g")
         printc(self.raw_prompt[0], c="g")
+        printc(f"Number of tokens: {len(self.tokenizer(self.raw_prompt[0])['input_ids'])}", c="g")
         # outputs = self.generator(data,
         #                          max_new_tokens=self.context_max_tokens,
         #                          pad_token_id=self.tokenizer.eos_token_id,

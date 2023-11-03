@@ -20,8 +20,9 @@ os.environ['HYDRA_FULL_ERROR'] = '1'
 
 async def main(cfg: DictConfig):
     start = time()
-    # model = instantiate(cfg.model)
-    # handler = BatchHandler(model=model, batch_size=cfg.model.batch_size)
+    if not 'lmql' in cfg.agent._target_:
+        model = instantiate(cfg.model)
+        handler = BatchHandler(model=model, batch_size=cfg.model.batch_size)
     paths_real = get_paths_real_sample(n=cfg.experiment.num_agents, paths_real_file=cfg.paths_real_file)
 
     agents = []
@@ -29,21 +30,26 @@ async def main(cfg: DictConfig):
     for i,path in enumerate(paths_real):
         env = LinkWikiEnviroment(path["src"], links_file=cfg.links_file)
         agent = instantiate(cfg.agent)
-        agent.model_cfg=cfg.model
         agent.set_environment(env)
-        # agent.set_handler(handler)
+        if not 'lmql' in str(cfg.agent._target_).lower():
+            agent.set_handler(handler)
+        else:
+            agent.model_cfg=cfg.model
         agent.set_target_page(path["tgt"])
         agent.set_agent_id(i)
         agents.append(agent)
         envs.append(env)
 
     agent_tasks = [asyncio.create_task(agent.run()) for agent in agents]
-    # batch_processor = asyncio.create_task(handler.process_batch())
+    if not 'lmql' in str(cfg.agent._target_).lower():
+        batch_processor = asyncio.create_task(handler.process_batch())
 
     try:
-        # results = await asyncio.gather(*agent_tasks, batch_processor, return_exceptions=False)
-        results = await asyncio.gather(*agent_tasks, return_exceptions=False)
-        # batch_processor.cancel()
+        if not 'lmql' in str(cfg.agent._target_).lower():
+            results = await asyncio.gather(*agent_tasks, batch_processor, return_exceptions=False)
+            batch_processor.cancel()
+        else:
+            results = await asyncio.gather(*agent_tasks, return_exceptions=False)
         print(f"Run finished with {results.count(True)} successes and {results.count(False)} failures.")
     except Exception as e:
         raise e

@@ -293,7 +293,6 @@ class WikiNavAgent(Agent):
                 self.num_actions += 1
                 self.num_tries = 0
             except Exception as e:
-                raise e
                 printc(f"Error in agent {self.agent_id}: {e}", c="r")
                 self.action_history.append(str(e))
                 self.num_actions += 1
