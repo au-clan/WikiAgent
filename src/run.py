@@ -6,13 +6,15 @@ import pandas as pd
 from pprint import pprint
 from time import time
 import asyncio
-
+import torch
+import lmql
 from model_utils import SystemMessage, HumanMessage, AIMessage, BaseMessage
 from logger import get_logger
 from utils import printc, load_tsv_to_dict_list, get_paths_real_sample
 from environments import LinkWikiEnviroment
 from agents import LinkClickAgent
 from batch_handler import BatchHandler
+import nest_asyncio
 
 os.environ['HYDRA_FULL_ERROR'] = '1'
 
@@ -20,9 +22,17 @@ os.environ['HYDRA_FULL_ERROR'] = '1'
 
 async def main(cfg: DictConfig):
     start = time()
+    model = None
     if not 'lmql' in cfg.agent._target_:
         model = instantiate(cfg.model)
         handler = BatchHandler(model=model, batch_size=cfg.model.batch_size)
+    else:
+        model = lmql.model(f"local:{cfg.model['model_path']}" if cfg.model['model_path'] else f"local:{cfg.model['model_name']}", 
+                            cuda=True if cfg.model['device']=='cuda' else False, 
+                            batch_size=cfg.model['batch_size'],
+                            dtype='float16' if cfg.model['half_precision'] else 'float32',
+                            inprocess=False,
+                            )
     paths_real = get_paths_real_sample(n=cfg.experiment.num_agents, paths_real_file=cfg.paths_real_file)
 
     agents = []
@@ -35,6 +45,7 @@ async def main(cfg: DictConfig):
             agent.set_handler(handler)
         else:
             agent.model_cfg=cfg.model
+            agent.model=model
         agent.set_target_page(path["tgt"])
         agent.set_agent_id(i)
         agents.append(agent)
@@ -50,6 +61,9 @@ async def main(cfg: DictConfig):
             batch_processor.cancel()
         else:
             results = await asyncio.gather(*agent_tasks, return_exceptions=False)
+        # cancel all tasks
+        for task in agent_tasks:
+            task.cancel()
         print(f"Run finished with {results.count(True)} successes and {results.count(False)} failures.")
     except Exception as e:
         raise e
@@ -64,6 +78,8 @@ def hydra_wrapper(func):
     wrapper()
 
 if __name__ == "__main__":
+    # we need nest_asyncio to run nested async loops with lmql
+    nest_asyncio.apply()
     hydra_wrapper(main)
 
 #nohup python src/run.py &

@@ -8,6 +8,7 @@ from agents import LinkClickDFSAgent, Agent, WikiNavAgent
 
 @define 
 class LMQLLinkClickDFSAgent(LinkClickDFSAgent):
+    model= field(default=None)
     model_cfg: dict = field(default=None)
 
     @lmql.query(output_writer=lmql.printing)
@@ -39,30 +40,14 @@ class LMQLLinkClickDFSAgent(LinkClickDFSAgent):
     async def lmql_query(self, prompt: str, candidates: List[str]):
         #
         '''lmql
-        sample(n=1, temperature=self.model_cfg['temperature'], top_p=self.model_cfg['top_p'], max_len=2048)
+        sample(n=1, temperature=self.model_cfg['temperature'], top_p=self.model_cfg['top_p'], max_len=4096)
             "{prompt}"
-            """{{"reason": "The 5 most relevant pages to {self.target_page} are: """
-
-            relevant_links = []
-            for i in range(5):
-                '{i+1}.[relevant_link]: [explanation]' where relevant_link in set(candidates) and stops_at(explanation, '.') and stops_before(explanation, '"')
-                relevant_links.append(relevant_link)
-                if i < 4:
-                    ';'
-
-            """ Therefore, [reason], "next_page": "[next_page]"}}""" where next_page in set(relevant_links) and len(TOKENS(reason)) < 150 and stops_before(reason, '"') and stops_before(reason, '\n')
-            
-        
-        from
-            lmql.model(f"local:{self.model_cfg['model_path']}" if self.model_cfg['model_path'] else f"local:{self.model_cfg['model_name']}", 
-            cuda=True if self.model_cfg['device']=='cuda' else False, 
-            batch_size=self.model_cfg['batch_size'],
-            dtype='float16' if self.model_cfg['half_precision'] else 'float32',)
+            """{{"next_page": "[next_page]"}}""" where next_page in set(candidates)
         '''
 
     def extract_actions(self, response: dict) -> dict:
         """ Processes the model output and returns a dict with the agent's choices."""
-        return response['NEXT_PAGE']
+        return response['next_page']
     
     async def act(self, feedback: str = None, debug=False):
         """ One turn of the agent. -Build prompt; Send prompt to model; Apply actions
@@ -83,7 +68,7 @@ class LMQLLinkClickDFSAgent(LinkClickDFSAgent):
         self.user_prompt_history.append(prompt[-2].content)
         start = time()
         if not debug:
-            response = await self.lmql_query(prompt=preprocess_llama_chat(prompt), candidates=links)
+            response = await self.lmql_query(prompt=preprocess_llama_chat(prompt), candidates=links, model=self.model)
         else:
             input_ = input("Response from model:")
             response = input_

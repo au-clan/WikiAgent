@@ -8,7 +8,7 @@ source ~/.conda/etc/profile.d/conda.sh #|| { echo "Failed to source conda" > tes
 conda activate ../miniconda3/envs/wikinav #|| { echo "Failed to activate conda environment" > test.log; exit 1; }
 
 python src/run.py \
-    --multirun model.device=cuda model.half_precision=True model.batch_size=3 \
+    --multirun model.device=cuda model.half_precision=True model.batch_size=2 \
     model.temperature=0.1,0.25,0.5,0.7,1,1.5 \
     agent=link_click/lmql_dfs_back \
     agent.fewshot=0,1,3,5,6 \
