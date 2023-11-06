@@ -197,7 +197,7 @@ class WebNavigatorHTML:
         """
         if self.active_updated:
             self.updateActive()
-        active_text = ("\n").join(self.df["activeText"])
+        active_text = ("").join(self.df["activeText"])
         return active_text
     
     def getHTML(self):
