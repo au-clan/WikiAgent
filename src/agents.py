@@ -27,6 +27,8 @@ class Agent:
     agent_id: int = field(default=None)
     source_page: str = field(default=None)
 
+    debug: bool = field(default=False)
+
     #features that are common to all agents
     use_feedback: bool = field(default=False)
     multiturn_demonstrations: bool = field(default=True)
@@ -182,7 +184,7 @@ class Agent:
         """ Depends on the agent type."""
         pass
 
-    async def act(self, feedback: str = None, debug=False):
+    async def act(self, feedback: str = None):
         """ One turn of the agent. -Build prompt; Send prompt to model; Apply actions
         args:
             feedback: str = None
@@ -196,7 +198,7 @@ class Agent:
     
         self.user_prompt_history.append(prompt[-2].content)
         start = time()
-        if not debug:
+        if not self.debug:
             response = await self.handler.send_prompt(self.agent_id, prompt)
         else:
             input_ = input("Response from model:")
@@ -283,12 +285,12 @@ class WikiNavAgent(Agent):
         else:
             return False, "none"
         
-    async def run(self, debug=False):
+    async def run(self):
         """ Run the agent until game is over or error."""
         feedback = None
         while not self.is_finished()[0]:
             try:
-                await self.act(feedback=feedback, debug=debug)
+                await self.act(feedback=feedback)
                 feedback = None
                 self.num_actions += 1
                 self.num_tries = 0
@@ -321,6 +323,7 @@ class LinkClickAgent(WikiNavAgent):
     """
     template_file: str = field(default="src/configs/agent/link_click_agent.yaml")
     demonstrations_file: str = field(default="data/wikispeedia/wikispeedia_paths-and-graph/fewshot_click_demonstrations.tsv")
+    demonstration_index: int = field(default=-1) # for testing different demos
     fewshot_click_types: str = field(default='all_no_back')
 
     def _load_fewshot_demonstrations_data(self) -> List[dict]:
@@ -338,7 +341,11 @@ class LinkClickAgent(WikiNavAgent):
             dicts = [row.to_dict() for _, row in demos_df.iterrows()]
         elif self.fewshot_click_types == 'all':
             dicts = [row.to_dict() for _, row in demos_df.iterrows()]
-        return dicts[:self.fewshot]
+        
+        if self.demonstration_index != -1:
+            return [dicts[self.demonstration_index]]
+        else:
+            return dicts[:self.fewshot]
 
     def observe_environment(self):
         observed_data = {

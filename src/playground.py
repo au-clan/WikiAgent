@@ -9,13 +9,13 @@ import asyncio
 
 from model_utils import *
 from logger import get_logger
-from utils import printc, load_tsv_to_dict_list
+from utils import printc, load_tsv_to_dict_list, get_paths_real_sample
 from environments import LinkWikiEnviroment
 from agents import *
 from lmql_agents import *
 from batch_handler import BatchHandler
 from models.huggingface_model import *
-from navigator import WebNavigatorHTML
+from navigator import WebNavigatorHTML, NavigatorHTML
 import lmql
 import torch
 
@@ -122,26 +122,55 @@ async def game_environment(cfg: DictConfig):
         print("\n\n")
 
 async def test_run(cfg: DictConfig):
-    env = LinkWikiEnviroment(cfg.experiment.src, links_file=cfg.links_file)
-    model=None
-    model = instantiate(cfg.model) if not cfg.experiment.debug_mode else None
-    handler = BatchHandler(batch_size=1, debug_mode=cfg.experiment.debug_mode, model=model)
-    agent = instantiate(cfg.agent)
-    agent.set_environment(env)
-    agent.set_target_page(cfg.experiment.tgt)
-    agent.set_handler(handler)
-    agent.set_agent_id(0)
+    start = time()
+    model = None
+    if not 'lmql' in cfg.agent._target_:
+        model = instantiate(cfg.model)
+        handler = BatchHandler(model=model, batch_size=cfg.model.batch_size)
+    else:
+        model = lmql.model(f"local:{cfg.model['model_path']}" if cfg.model['model_path'] else f"local:{cfg.model['model_name']}", 
+                            cuda=True if cfg.model['device']=='cuda' else False, 
+                            batch_size=cfg.model['batch_size'],
+                            dtype='float16' if cfg.model['half_precision'] else 'float32',
+                            inprocess=False,
+                            )
+    paths_real = get_paths_real_sample(n=cfg.experiment.num_agents, paths_real_file=cfg.paths_real_file)
 
-    agent_tasks = [asyncio.create_task(agent.run(debug=False))]
-    batch_processor = asyncio.create_task(handler.process_batch())
-    
+    agents = []
+    envs = []
+    for i,path in enumerate(paths_real):
+        env = LinkWikiEnviroment(path["src"], links_file=cfg.links_file)
+        agent = instantiate(cfg.agent)
+        agent.set_environment(env)
+        if not 'lmql' in str(cfg.agent._target_).lower():
+            agent.set_handler(handler)
+        else:
+            agent.model_cfg=cfg.model
+            agent.model=model
+        agent.set_target_page(path["tgt"])
+        agent.set_agent_id(i)
+        agents.append(agent)
+        envs.append(env)
+
+    agent_tasks = [asyncio.create_task(agent.run()) for agent in agents]
+    if not 'lmql' in str(cfg.agent._target_).lower():
+        batch_processor = asyncio.create_task(handler.process_batch())
+
     try:
-        results = await asyncio.gather(*agent_tasks, batch_processor, return_exceptions=False)
-        batch_processor.cancel()
-        for result in results:
-            print("result:",result)
+        if not 'lmql' in str(cfg.agent._target_).lower():
+            results = await asyncio.gather(*agent_tasks, batch_processor, return_exceptions=False)
+            batch_processor.cancel()
+        else:
+            results = await asyncio.gather(*agent_tasks, return_exceptions=False)
+        # cancel all tasks
+        for task in agent_tasks:
+            task.cancel()
+        print(f"Run finished with {results.count(True)} successes and {results.count(False)} failures.")
     except Exception as e:
         raise e
+ 
+    print(f"Total time taken: {time() - start:.1f} seconds")
+    print(f"Average time per action: {(time() - start) / sum([agent.num_actions for agent in agents]):.2f}s for {sum([agent.num_actions for agent in agents])} actions")
 
 def rellm_test():
     import regex
@@ -286,7 +315,7 @@ async def lmql_agent_test(cfg: DictConfig):
     print(response)
     print("Time:", time() - start)
 
-def navigate():
+def navigate_web():
     import sys, random, os
     from pathlib import Path
     import pandas as pd
@@ -297,9 +326,10 @@ def navigate():
     from utils import format_path
 
     def format_source(page):
-        source = "file://" + str(Path(os.getcwd()).parents[1]) + "/data/wpcd/wp/{}/{}.htm".format(page.lower()[0], page)
+        source = "file://" + os.path.abspath("/dlabdata1/charneca/WikiNav/data/wpcd/wp/{}/{}.htm".format(page.lower()[0], page))
         return source
-    current = "United States"
+    
+    current = "Portugal"
     downloads_folder = "../data/downloads"
 
     options = webdriver.ChromeOptions()
@@ -307,9 +337,31 @@ def navigate():
     options.add_argument('--disable-gpu')  # Necessary for running in headless mode on some systems
     options.add_argument('--no-sandbox') 
     driver = webdriver.Chrome(options=options)
+    print(format_source(current))
 
     nav = WebNavigatorHTML(driver, source=format_source(current), downloads_folder=downloads_folder)
+    print(nav.getHTML())
+    nav.moveDown()
+    print(nav.getHTML())
+
+def navigate():
+    html = "data/wpcd/wp/"
+    nav = NavigatorHTML(pages_path=html, token_window=300, overlap=0.1)
+    nav.set_curr_doc("United_States")
+    while True:
+        print(nav.window_text)
+        print("LINKS:", nav.window_links)
+        next_action = input("Action: ")
+        if next_action == "moveDown":
+            nav.moveDown()
+        elif next_action == "moveUp":
+            nav.moveUp()
+        
+
+
+
+
 
 if __name__ == "__main__":
-    # navigate()
-    hydra_wrapper(test_run)
+    navigate_web()
+    # hydra_wrapper(test_run)

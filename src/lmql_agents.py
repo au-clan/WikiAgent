@@ -1,6 +1,7 @@
 from attr import define, field
 from typing import List
 from models.huggingface_model import preprocess_llama_chat
+from model_utils import printc_prompt
 from utils import printc
 from time import time
 import lmql
@@ -49,7 +50,7 @@ class LMQLLinkClickDFSAgent(LinkClickDFSAgent):
         """ Processes the model output and returns a dict with the agent's choices."""
         return response['next_page']
     
-    async def act(self, feedback: str = None, debug=False):
+    async def act(self, feedback: str = None):
         """ One turn of the agent. -Build prompt; Send prompt to model; Apply actions
         args:
             feedback: str = None
@@ -63,16 +64,15 @@ class LMQLLinkClickDFSAgent(LinkClickDFSAgent):
             links.append("NA")
 
         printc(f"Agent {self.agent_id} says: {prompt[-2].content}")
-        #printc_prompt(self.prompt, c='p')
+        # printc_prompt(self.prompt, c='p')
     
         self.user_prompt_history.append(prompt[-2].content)
         start = time()
-        if not debug:
+        if not self.debug:
             response = await self.lmql_query(prompt=preprocess_llama_chat(prompt), candidates=links, model=self.model)
         else:
             input_ = input("Response from model:")
             response = input_
-        print(response.variables)
         ### TODO: fix this for non llama
         self.raw_response_history.append(response.prompt.split("[/INST]")[-1])
 
