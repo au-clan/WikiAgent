@@ -12,3 +12,5 @@ data/wpcd/
 nohup.out
 *.log
 .nfs00000000fb2710240000152c
+active_elements.json.crdownload
+active_elements.json

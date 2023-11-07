@@ -146,7 +146,8 @@ class WebNavigatorHTML:
             element = self.driver.find_element(By.CSS_SELECTOR, "a[href='{}']".format(link))
             element.click()
             self.active_updated= True
-        except :
+        except Exception as e:
+            print(e)
             print("Link for '{}' [{}] not found in the page !".format(page, link))
 
     def moveUp(self):

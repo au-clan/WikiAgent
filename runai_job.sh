@@ -8,10 +8,10 @@ source ~/.conda/etc/profile.d/conda.sh #|| { echo "Failed to source conda" > tes
 conda activate ../miniconda3/envs/wikinav #|| { echo "Failed to activate conda environment" > test.log; exit 1; }
 
 python src/run.py \
-    --multirun model.device=cuda model.half_precision=True model.batch_size=2 \
+    --multirun model.device=cuda model.half_precision=True model.batch_size=4 \
     model.temperature=0.5 \
     agent=link_click/lmql_dfs_back \
-    agent.fewshot=1 +agent.demonstration_index=0,1,2,3,4,5 \
+    agent.fewshot=1 +agent.demonstration_index=6,7,8,9,10,11\
     run_name=constr_oneshot_demo \
     > constr_oneshot_demo.log 2>&1
 
