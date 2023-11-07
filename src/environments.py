@@ -4,6 +4,7 @@ import sys
 from typing import List
 sys.path.append("src/")
 from utils import load_links, wikify_article_name, un_wikify_article_name
+from navigator import WebNavigatorHTML
 
 
 # every time the current page is updated, we should update the environment
@@ -110,3 +111,49 @@ class LinkWikiEnviroment(WikiEnvironment):
     def _set_content(self):
         pass
 
+@define
+class WebWikiEnvironment(WikiEnvironment):
+
+    nav = field(factory=WebNavigatorHTML)
+    
+    def _set_current_page(self, new_page: str):
+        self.current_page = wikify_article_name(new_page)
+        self.nav.movePage(self.current_page)
+
+    def _set_links(self):
+        self.links = self.nav.getLinks()
+    
+    def _set_content(self, html=False):
+        if html:
+            self.content = self.nav.getHTML()
+        else:
+            self.content = self.nav.getText()
+
+    def move(self, direction: str):
+        """
+        Moves the window down or up.
+        """
+        if direction.strip().lower() == "down":
+            self.nav.moveDown()
+        elif direction.strip().lower() == "up":
+            self.nav.moveUp()
+        else:
+            raise Exception("Invalid direction. Choose either 'up' or 'down'.")
+        self._set_content()
+        self._set_links()
+        self.content_history.append(self.content)
+
+    def back(self):
+        """
+        Return to previous page.
+        """
+        if len(self.page_history) > 1:
+            self.full_page_history.append("<")
+            self.page_history.pop()
+            self.content_history.pop()
+            self.nav.moveBack()
+            self.current_page = self.page_history[-1]
+            self._set_content()
+            self._set_links()
+        else:
+            raise Exception("Cannot go back any further. Choose a different action.")
