@@ -141,7 +141,7 @@ class WebNavigatorHTML:
         Given the name of a page, it firstly translates it to the corresponding link and then
         clicks on it, if it's in the current page.
         """
-        link = "../../wp/" + page[0].lower() +"/" +urllib.parse.quote(page) + ".htm"
+        link = "../../wp/" + page[0].lower() +"/" +page + ".htm"
         try :
             element = self.driver.find_element(By.CSS_SELECTOR, "a[href='{}']".format(link))
             element.click()

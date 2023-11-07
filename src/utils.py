@@ -195,6 +195,9 @@ def get_links_old(input_text):
     return matches
 
 def get_links(html):
+    """
+    Given an html string, it returns all the links in it.
+    """
     soup = BeautifulSoup(html, 'html.parser')
     links = soup.find_all('a')
     link_list = []
