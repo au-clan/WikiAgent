@@ -1,13 +1,14 @@
-import tiktoken, os
+import tiktoken, os, html2text
 from bs4 import BeautifulSoup
 import pandas as pd
+import urllib.parse
 
 from selenium.webdriver.common.by import By
 
 # Custom 
 from html2text_ import clean, clean_text
 from utils import get_links, waitForDownload, delete_file_if_exists, getActiveText
-from utils import page2href, get_links
+from utils import page2href, get_links, formatPageURL
 
 
 class NavigatorHTML:
@@ -97,21 +98,50 @@ class WebNavigatorHTML:
     Second implementation of the HTML Navigator.
     Opens the page in a browser and moves by interacting with the page.
     """
-    def __init__(self, driver, source, downloads_folder):
+    def __init__(self, driver, pages, downloads_folder, agents=None, markdown=False):
         self.driver = driver
-        self.driver.get(source)
+        self.agentTabs = {}
+        if agents is None:
+            agents = list(range(len(pages)))
+        self.initTabs(agents, pages)
+        
         file_name = "active_elements.json" # Name of the file downloaded - Defined already by JS
         self.file_path = os.path.join(downloads_folder, file_name)
         self.df = None
         self.active_updated= True
+        if markdown:
+            self.parser = html2text.HTML2Text()
+            self.parser.ignore_links = True
+            self.parser.images_to_alt = True
+            self.parser.body_width = 0
+        else:
+            self.parser = None
 
+    def initTabs(self, agents, pages):
+        original_tab = self.driver.current_window_handle
+        for agent, page in zip(agents, pages):
+            self.driver.switch_to.new_window("tab")
+            self.agentTabs[agent] = self.driver.current_window_handle
+            self.driver.get(formatPageURL(page))
+        
+        self.driver.switch_to.window(original_tab)
+        self.driver.close()
+        self.driver.switch_to.window(self.agentTabs[0])
+    
+    def switchTab(self, agent):
+        """
+        Switches to the tab corresponding to the agent.
+        """
+        assert agent in self.agentTabs.keys(), "Agent {} not found !".format(agent)
+        self.driver.switch_to.window(self.agentTabs[agent])
+
+    
     def movePage(self, page):
         """
         Given the name of a page, it firstly translates it to the corresponding link and then
         clicks on it, if it's in the current page.
         """
-        # TODO: use better paths 
-        link = "../../wp/" + page[0].lower() +"/" + page + ".htm"
+        link = "../../wp/" + page[0].lower() +"/" +urllib.parse.quote(page) + ".htm"
         try :
             element = self.driver.find_element(By.CSS_SELECTOR, "a[href='{}']".format(link))
             element.click()
@@ -184,10 +214,13 @@ class WebNavigatorHTML:
         # Active area
         df["active"] = df.apply(lambda x: 1-x["skipTop"]-x["skipBot"], axis=1)
         # html -> text
-        df["text"] = df["elements"].apply(clean_text)
+        if self.parser:
+            df["text"] = df["elements"].apply(lambda x : self.parser.handle(x))
+        else:
+            df["text"] = df["elements"].apply(clean_text)
         df["activeText"] = df.apply(lambda x : getActiveText(x["text"], x["tag"], x["skipTop"], x
         ["skipBot"], x["active"]), axis=1)
-        df["activeLinks"] = df["activeText"].apply(get_links)
+        df["activeLinks"] = df["elements"].apply(get_links)
         self.df = df
         self.active_updated = False
         if verbose:

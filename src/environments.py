@@ -166,3 +166,9 @@ class WebWikiEnvironment(WikiEnvironment):
             self._set_links()
         else:
             raise Exception("Cannot go back any further. Choose a different action.")
+    
+    def change_env(self, agent_id):
+        """
+        Switch to the environment (tab) of the specified agent.
+        """
+        self.nav.switchTab(agent_id)

@@ -9,6 +9,7 @@ from math import floor, ceil
 from bs4 import BeautifulSoup
 from urllib.parse import unquote
 from time import sleep
+from pathlib import Path
 
 
 def get_paths_real_sample(n=100, paths_real_file='wikispeedia/wikispeedia_paths-and-graph/paths_real_processed.tsv') -> list[dict]:
@@ -180,8 +181,9 @@ def page2href(pages_path, page):
     href = pages_path + "{}/{}.htm".format(initial, page)
     return href
 
-def get_links(input_text):
+def get_links_old(input_text):
     """
+    TO-DELETE : Just keeping here for a day or two in case we need it.
     Returns all link in a string. The links have to be formatted as [*link*]
     Inputs
         - input_text [str]: text to extract links from
@@ -191,6 +193,17 @@ def get_links(input_text):
     pattern = r'\[\*(.*?)\*\]'
     matches = re.findall(pattern, input_text)
     return matches
+
+def get_links(html):
+    soup = BeautifulSoup(html, 'html.parser')
+    links = soup.find_all('a')
+    link_list = []
+    pattern = r'\.\.\/\.\.\/wp\/./([^/]+)\.htm'
+    for link in links:
+        href = link.get('href')
+        if href and re.match(pattern, href):
+            link_list.append(re.findall(pattern, href)[0])
+    return link_list
 
 def format_path(path):
     """
@@ -283,3 +296,11 @@ def getActiveText(text, tag, skipTop, skipBot, active):
     else:
         activeText = ""
     return activeText
+
+def formatPageURL(page):
+    """
+    Given just the name of the file it formats it into the URL so it can be used by the selenium driver.
+    --> This might need to be updated as it covers all pages except for the ones in the "index" folder.
+    """
+    source = "file://" + str(Path(os.getcwd()).parents[1]) + "/data/wpcd/wp/{}/{}.htm".format(page.lower()[0], page)
+    return source
