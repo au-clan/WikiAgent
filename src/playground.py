@@ -10,7 +10,7 @@ import asyncio
 from model_utils import *
 from logger import get_logger
 from utils import printc, load_tsv_to_dict_list, get_paths_real_sample
-from environments import LinkWikiEnviroment
+from environments import LinkWikiEnviroment, WebWikiEnvironment
 from agents import *
 from lmql_agents import *
 from batch_handler import BatchHandler
@@ -315,53 +315,55 @@ async def lmql_agent_test(cfg: DictConfig):
     print(response)
     print("Time:", time() - start)
 
-def navigate_web():
+def navigate_web(cfg: DictConfig):
     import sys, random, os
-    from pathlib import Path
-    import pandas as pd
+
     from selenium import webdriver
-    from time import sleep
     sys.path.append('../')
     from navigator import WebNavigatorHTML
-    from utils import format_path
+    from urllib.parse import unquote
 
     def format_source(page):
-        source = "file://" + os.path.abspath("/dlabdata1/charneca/WikiNav/data/wpcd/wp/{}/{}.htm".format(page.lower()[0], page))
+        page = "wpcd/wp/{}/{}.htm".format(page.lower()[0], page)
+        source = "file://" + os.path.join(cfg.data_dir, page)
         return source
     
-    current = "Portugal"
-    downloads_folder = "../data/downloads"
+    current = "Portuguese_language"
+    print("Page location", format_source(current))
+    downloads_folder = ""
 
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
     options.add_argument('--disable-gpu')  # Necessary for running in headless mode on some systems
     options.add_argument('--no-sandbox') 
+
     driver = webdriver.Chrome(options=options)
-    print(format_source(current))
 
     nav = WebNavigatorHTML(driver, source=format_source(current), downloads_folder=downloads_folder)
-    print(nav.getHTML())
-    nav.moveDown()
-    print(nav.getHTML())
+    env = WebWikiEnvironment(nav=nav, current_page=current)
 
-def navigate():
-    html = "data/wpcd/wp/"
-    nav = NavigatorHTML(pages_path=html, token_window=300, overlap=0.1)
-    nav.set_curr_doc("United_States")
     while True:
-        print(nav.window_text)
-        print("LINKS:", nav.window_links)
-        next_action = input("Action: ")
-        if next_action == "moveDown":
-            nav.moveDown()
-        elif next_action == "moveUp":
-            nav.moveUp()
-        
+        printc(env.content, c="g")
+        printc([unquote(link) for link in env.links], c="b")
 
-
-
+        action=input("Action: ")
+        try:
+            if action=="moveDown":
+                env.move("down")
+            elif action=="moveUp":
+                env.move("up")
+            elif action=="back":
+                env.back()
+            elif action=="click":
+                input_link = input("Link: ")
+                env.change_page(input_link)
+        except Exception as e:
+            printc(f"Error: {e}", c="r")
+            continue
+    # print(nav.getHTML())
+    # nav.moveDown()
+    # print(nav.getHTML())
 
 
 if __name__ == "__main__":
-    navigate_web()
-    # hydra_wrapper(test_run)
+    hydra_wrapper_noasync(navigate_web)

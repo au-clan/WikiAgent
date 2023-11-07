@@ -5,6 +5,9 @@ from typing import List
 sys.path.append("src/")
 from utils import load_links, wikify_article_name, un_wikify_article_name
 from navigator import WebNavigatorHTML
+from urllib.parse import quote, unquote
+import re
+
 
 
 # every time the current page is updated, we should update the environment
@@ -118,16 +121,22 @@ class WebWikiEnvironment(WikiEnvironment):
     
     def _set_current_page(self, new_page: str):
         self.current_page = wikify_article_name(new_page)
-        self.nav.movePage(self.current_page)
+        self.nav.movePage(quote(self.current_page))
 
     def _set_links(self):
-        self.links = self.nav.getLinks()
+        ### dirty fix for invalid links
+        self.links = [unquote(link) for link in self.nav.getLinks()
+                      if link != "index" 
+                      if not link.startswith("subject.") and not link.endswith(".jpg")]
     
     def _set_content(self, html=False):
         if html:
             self.content = self.nav.getHTML()
         else:
-            self.content = self.nav.getText()
+            ### dirty fix for invalid links
+            pattern = r"\[\*(index|subject\.[^\]]*)\*\]"
+            self.content = unquote(self.nav.getText())
+            self.content = re.sub(pattern, "", self.content)
 
     def move(self, direction: str):
         """
