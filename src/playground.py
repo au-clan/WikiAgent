@@ -9,15 +9,17 @@ import asyncio
 
 from model_utils import *
 from logger import get_logger
-from utils import printc, load_tsv_to_dict_list, get_paths_real_sample
+from utils import *
 from environments import LinkWikiEnviroment, WebWikiEnvironment
 from agents import *
 from lmql_agents import *
 from batch_handler import BatchHandler
 from models.huggingface_model import *
-from navigator import WebNavigatorHTML, NavigatorHTML
+from navigator import *
 import lmql
-import torch
+import sys
+from selenium import webdriver
+sys.path.append('../')
 
 os.environ['HYDRA_FULL_ERROR'] = '1'
 
@@ -91,8 +93,17 @@ def llama_completion_prompt():
     print(message)
 
 async def game_environment(cfg: DictConfig):
-    env = LinkWikiEnviroment(cfg.experiment.src, links_file=cfg.links_file)
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    options.add_argument('--disable-gpu')  # Necessary for running in headless mode on some systems
+    options.add_argument('--no-sandbox') 
+    driver = webdriver.Chrome(options=options)
+
+    nav = WebNavigatorHTML(driver, pages=[cfg.experiment.src], downloads_folder="", markdown=False)
+    env = WebWikiEnvironment(nav=nav, current_page=cfg.experiment.src, html=True)
+
     agent = instantiate(cfg.agent)
+    print(agent.action_list)
     agent.set_environment(env)
     agent.set_target_page(cfg.experiment.tgt)
     agent.set_agent_id(0)
@@ -123,6 +134,11 @@ async def game_environment(cfg: DictConfig):
 
 async def test_run(cfg: DictConfig):
     start = time()
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    options.add_argument('--disable-gpu')  # Necessary for running in headless mode on some systems
+    options.add_argument('--no-sandbox') 
+
     model = None
     if not 'lmql' in cfg.agent._target_:
         model = instantiate(cfg.model)
@@ -139,7 +155,11 @@ async def test_run(cfg: DictConfig):
     agents = []
     envs = []
     for i,path in enumerate(paths_real):
-        env = LinkWikiEnviroment(path["src"], links_file=cfg.links_file)
+        driver = webdriver.Chrome(options=options)
+        # nav = WebNavigatorHTML(driver, pages=[path['src']], downloads_folder="", markdown=False)
+        # env = WebWikiEnvironment(nav=nav, current_page=path['src'], html=True)
+        nav = WebNavigatorHTML(driver, pages=[cfg.experiment.src], downloads_folder="", markdown=False)
+        env = WebWikiEnvironment(nav=nav, current_page=cfg.experiment.src, html=True)
         agent = instantiate(cfg.agent)
         agent.set_environment(env)
         if not 'lmql' in str(cfg.agent._target_).lower():
@@ -147,7 +167,8 @@ async def test_run(cfg: DictConfig):
         else:
             agent.model_cfg=cfg.model
             agent.model=model
-        agent.set_target_page(path["tgt"])
+        # agent.set_target_page(path["tgt"])
+        agent.set_target_page(cfg.experiment.tgt)
         agent.set_agent_id(i)
         agents.append(agent)
         envs.append(env)
@@ -176,7 +197,7 @@ def rellm_test():
     import regex
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    from rellm_new import complete_re
+    from deprecated.rellm_new import complete_re
     model_name = "/dlabdata1/llama2_hf/Llama-2-7b-hf/" #"gpt2" # 
     model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto")
     tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
@@ -316,21 +337,12 @@ async def lmql_agent_test(cfg: DictConfig):
     print("Time:", time() - start)
 
 def navigate_web(cfg: DictConfig):
-    import sys, random, os
-
-    from selenium import webdriver
-    sys.path.append('../')
-    from navigator import WebNavigatorHTML
-    from urllib.parse import unquote
-
-    def format_source(page):
-        page = "wpcd/wp/{}/{}.htm".format(page.lower()[0], page)
-        source = "file://" + os.path.join(cfg.data_dir, page)
-        return source
-    
-    current = "Portuguese_language"
-    print("Page location", format_source(current))
+    current = "Euro"
     downloads_folder = ""
+    print(formatPageURL(current))
+    print(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
 
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
@@ -339,12 +351,13 @@ def navigate_web(cfg: DictConfig):
 
     driver = webdriver.Chrome(options=options)
 
-    nav = WebNavigatorHTML(driver, source=format_source(current), downloads_folder=downloads_folder)
-    env = WebWikiEnvironment(nav=nav, current_page=current)
+    nav = WebNavigatorHTML(driver, pages=[current], downloads_folder=downloads_folder, markdown=False)
+    env = WebWikiEnvironment(nav=nav, current_page=current, html=True)
 
     while True:
         printc(env.content, c="g")
-        printc([unquote(link) for link in env.links], c="b")
+        printc(env.links, c="b")
+        # printc(env.links, c="b")
 
         action=input("Action: ")
         try:
@@ -366,4 +379,4 @@ def navigate_web(cfg: DictConfig):
 
 
 if __name__ == "__main__":
-    hydra_wrapper_noasync(navigate_web)
+    hydra_wrapper(test_run)

@@ -125,21 +125,21 @@ class Agent:
         if not feedback:
             if self.multiturn_demonstrations:
                 replace_dict['agent_description'] = self.agent_description.format(replace=replace_dict)
-                system_message_content = self.prompt_template['system'].format(replace=replace_dict)
-
-                demos_list = self._load_fewshot_demonstrations_data()
-                
+                system_message_content = self.prompt_template['system'].format(replace=replace_dict)                
                 prompt = [SystemMessage(system_message_content)]
                 user_message_content += self.user_initial_prefix.format(replace=replace_dict)
                 ai_message_content = ""
-                # fewshot examples
-                for demo in demos_list:
-                    user_message_content += self.user_template.format(replace = demo)
-                    ai_message_content = self.demonstration_template.format(replace = demo)
-                    prompt.append(HumanMessage(user_message_content))
-                    prompt.append(AIMessage(ai_message_content))
-                    user_message_content = ""
-                    ai_message_content = ""
+
+                if self.fewshot > 0:
+                    demos_list = self._load_fewshot_demonstrations_data()
+                    # fewshot examples
+                    for demo in demos_list:
+                        user_message_content += self.user_template.format(replace = demo)
+                        ai_message_content = self.demonstration_template.format(replace = demo)
+                        prompt.append(HumanMessage(user_message_content))
+                        prompt.append(AIMessage(ai_message_content))
+                        user_message_content = ""
+                        ai_message_content = ""
                     
             else: # non-multiturn demonstrations 
                 replace_dict['fewshot_demonstrations'] = "\n".join(self.get_fewshot_demonstrations())
@@ -194,7 +194,7 @@ class Agent:
         prompt = self.build_prompt(feedback)
 
         printc(f"Agent {self.agent_id} says: {prompt[-2].content}")
-        #printc_prompt(self.prompt, c='p')
+        printc_prompt(self.prompt, c='p')
     
         self.user_prompt_history.append(prompt[-2].content)
         start = time()
@@ -223,7 +223,7 @@ class Agent:
 
 
 @define
-class WikiNavAgent(Agent):
+class BaseWikiAgent(Agent):
     """
     Virtual class for agents that navigate Wikipedia with a target page.
     """
@@ -233,6 +233,7 @@ class WikiNavAgent(Agent):
     # features
     use_retry: bool = field(default=False)
     use_reasoning: bool = field(default=False)
+    use_back: bool = field(default=True)
 
     # finishing conditions
     max_tries: int = field(default=3) # retry same prompt
@@ -317,7 +318,7 @@ class WikiNavAgent(Agent):
             return False
 
 @define
-class LinkClickAgent(WikiNavAgent):
+class LinkClickAgent(BaseWikiAgent):
     """
     Agent that clicks knowing only the list of links in a certain page.
     """
@@ -325,6 +326,7 @@ class LinkClickAgent(WikiNavAgent):
     demonstrations_file: str = field(default="data/wikispeedia/wikispeedia_paths-and-graph/fewshot_click_demonstrations.tsv")
     demonstration_index: int = field(default=-1) # for testing different demos
     fewshot_click_types: str = field(default='all_no_back')
+    sample_random_demos: bool = field(default=False)
 
     def _load_fewshot_demonstrations_data(self) -> List[dict]:
         demos_df = pd.read_csv(self.demonstrations_file, sep='\t').fillna('NA')
@@ -340,6 +342,8 @@ class LinkClickAgent(WikiNavAgent):
             demos_df = demos_df[demos_df['click_type'] != 'back']
             dicts = [row.to_dict() for _, row in demos_df.iterrows()]
         elif self.fewshot_click_types == 'all':
+            if self.sample_random_demos:
+                demos_df = demos_df.sample(n=self.fewshot)
             dicts = [row.to_dict() for _, row in demos_df.iterrows()]
         
         if self.demonstration_index != -1:
@@ -387,8 +391,6 @@ class LinkClickDFSAgent(LinkClickAgent):
     This class allows backtracking and excludes previously visited pages from candidates.
     Makes playing Wikispeedia similar to a DFS.
     """
-    use_back: bool = field(default=True)
-
     def __attrs_post_init__(self):
         if self.fewshot_click_types != 'first-only':
             self.fewshot_click_types = 'all_no_back' if not self.use_back else 'all'

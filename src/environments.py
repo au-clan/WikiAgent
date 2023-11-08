@@ -65,7 +65,7 @@ class WikiEnvironment(Environment):
 
     def change_page(self, new_page: str, **kwargs):
         wikified_new_page = wikify_article_name(new_page)
-
+        assert len(wikified_new_page) > 0, "Page name can't be empty. Choose a different action."
         assert wikified_new_page in self.links, f"Link {wikified_new_page} not on current page. Try a different page."
 
         self.page_history.append(wikified_new_page)
@@ -118,22 +118,30 @@ class LinkWikiEnviroment(WikiEnvironment):
 class WebWikiEnvironment(WikiEnvironment):
 
     nav = field(factory=WebNavigatorHTML)
-    
+    html = field(default=False)
+
     def _set_current_page(self, new_page: str):
-        self.current_page = wikify_article_name(new_page)
-        self.nav.movePage(self.current_page)
+        new_page_wikified= wikify_article_name(new_page)
+        self.nav.movePage(quote(quote(new_page_wikified)))
+        self.current_page = new_page_wikified
 
     def _set_links(self):
-        self.links = self.nav.getLinks()
+        self.links = [unquote(unquote(link)) for link in self.nav.getLinks()]
     
-    def _set_content(self, html=False):
-        if html:
-            self.content = self.nav.getHTML()
+    def _set_content(self):
+        if self.html:
+            ### remove html comments
+            pattern = r"<!--.*?-->\n"
+            ### remove blocks of 3 or more spaces
+            pattern += r"| {3,}"
+            self.content = re.sub(pattern, "", self.nav.getHTML())
+            # self.content = self.nav.getHTML()
         else:
             ### dirty fix for invalid links
-            pattern = r"\[\*(index|subject\.[^\]]*)\*\]"
-            self.content = unquote(self.nav.getText())
-            self.content = re.sub(pattern, "", self.content)
+            self.content = self.nav.getText()
+            # pattern = r"\[\*(index|subject\.[^\]]*)\*\]"
+            # self.content = unquote(self.nav.getText())
+            # self.content = re.sub(pattern, "", self.content)
 
     def move(self, direction: str):
         """

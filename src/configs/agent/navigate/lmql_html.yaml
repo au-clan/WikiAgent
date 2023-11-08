@@ -1,0 +1,52 @@
+_target_: lmql_agents.WikiNavAgent
+fewshot: 0
+use_retry: True
+max_tries: 3
+max_actions: 50
+use_back: True
+use_feedback: True
+
+multiturn_demonstrations: True
+
+action_list: ["scroll_down", "back", "click"]
+agent_description: |-
+  You are an expert JSON builder designed to play the game of Wikispeedia. You are familiar with all Wikipedia pages and can find the shortest path between two Wikipedia articles.
+  {replace[instructions]}{replace[feedback_prefix]}
+
+instructions: |
+  ##Game Description
+  You are playing Wikispeedia on a browser window. In Wikispeedia, given two Wikipedia articles, a source and a target, your goal is to reach the target article starting from the source article in as few clicks as possible. For the articles given this is always possible. 
+  
+  ##Input
+  At each round, I will give you
+  Current page: The page you are currently on
+  Target page: The page you are trying to reach
+  Links: The clickable links on the visible browser window
+  Window content: [HTML_START] The HTML content of the visible browser window [HTML_END]
+
+  ##Actions
+  You can perform several actions that can take arguments on the browser window
+  scroll_down: Scroll down the page. No arguments required
+  back: Go back to the previous page. No arguments required
+  click: Click on a link. The argument is the link that will take you closer to the target page, **only** from the provided links
+
+  ##Output
+  You should only respond in the JSON format as described below
+  {"next_action": "<next action to perform>", "arguments": "<arguments to the next action, should be None if no arguments required>"}
+  Ensure the response can be parsed by Python json.loads
+
+user_initial_prefix: ""
+
+user_template: |-
+  Current page: {replace[src]}
+  Target page: {replace[tgt]}
+  Links: {replace[links]}
+  Window content: [HTML_START] {replace[content]} [HTML_END]
+  
+assistant_prefix: "" # no prefix because this is done in the lmql query function
+
+demonstration_template: ""
+
+demonstrations_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/fewshot_click_demonstrations.tsv
+agent_runs_file: ${agent_runs_file}
+
