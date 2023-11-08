@@ -252,3 +252,14 @@ class WebNavigatorHTML:
             self.updateActive()
         links = self.df["activeLinks"].explode().dropna().tolist()
         return links
+    
+    def getScrollPosition(self):
+        """
+        Get the scroll position for the active elements.
+        """
+        if self.active_updated:
+            self.updateActive()
+        currScroll = self.df.iloc[0]["currScroll"]
+        maxScroll = self.df.iloc[0]["maxScroll"]
+        return currScroll, maxScroll
+        

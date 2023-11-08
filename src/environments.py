@@ -118,10 +118,18 @@ class LinkWikiEnviroment(WikiEnvironment):
 class WebWikiEnvironment(WikiEnvironment):
 
     nav = field(factory=WebNavigatorHTML)
+    position = field(factory=tuple)
     
+    def __attrs_post_init__(self):
+        self._set_position()
+        super().__attrs_post_init__()
+
     def _set_current_page(self, new_page: str):
         self.current_page = wikify_article_name(new_page)
         self.nav.movePage(self.current_page)
+    
+    def _set_position(self):
+        self.position = self.nav.getScrollPosition()
 
     def _set_links(self):
         self.links = self.nav.getLinks()
@@ -147,6 +155,7 @@ class WebWikiEnvironment(WikiEnvironment):
             raise Exception("Invalid direction. Choose either 'up' or 'down'.")
         self._set_content()
         self._set_links()
+        self._set_position()
         self.content_history.append(self.content)
 
     def back(self):
@@ -161,6 +170,7 @@ class WebWikiEnvironment(WikiEnvironment):
             self.current_page = self.page_history[-1]
             self._set_content()
             self._set_links()
+            self._set_position()
         else:
             raise Exception("Cannot go back any further. Choose a different action.")
     
@@ -171,4 +181,5 @@ class WebWikiEnvironment(WikiEnvironment):
         self.nav.switchTab(agent_id)
         self._set_content()
         self._set_links()
+        self._set_position()
         # self.current_page : Not sure yet how to handle this.
