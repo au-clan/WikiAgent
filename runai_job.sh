@@ -11,9 +11,9 @@ python src/run.py \
     --multirun model.device=cuda model.half_precision=True model.batch_size=2 \
     model.temperature=0.5 \
     agent=link_click/lmql_dfs_back \
-    agent.fewshot=0,1,2,3,4,5,6\
-    run_name=constr_fewshot_exper \
-    > constr_fewshot_exper.log 2>&1
+    agent.fewshot=1,2,3,4,5,6 +agent.sample_random_demos=True\
+    run_name=constr_fewshot_random_demos \
+    > constr_fewshot_random_demos.log 2>&1
 
 # python src/run.py \
 #     --multirun model.device=cuda model.half_precision=True model.batch_size=1 model=llama_2_7b_chat_hf\
