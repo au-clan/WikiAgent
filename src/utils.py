@@ -10,7 +10,9 @@ from bs4 import BeautifulSoup
 from urllib.parse import unquote
 from time import sleep
 from pathlib import Path
+import yaml
 
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def get_paths_real_sample(n=100, paths_real_file='wikispeedia/wikispeedia_paths-and-graph/paths_real_processed.tsv') -> list[dict]:
     """
@@ -305,5 +307,5 @@ def formatPageURL(page):
     Given just the name of the file it formats it into the URL so it can be used by the selenium driver.
     --> This might need to be updated as it covers all pages except for the ones in the "index" folder.
     """
-    source = "file://" + str(Path(os.getcwd()).parents[1]) + "/data/wpcd/wp/{}/{}.htm".format(page.lower()[0], page)
+    source = "file://" + os.path.join(ROOT_DIR, "data/wpcd/wp/{}/{}.htm".format(page.lower()[0], page))
     return source
