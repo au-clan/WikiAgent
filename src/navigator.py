@@ -8,7 +8,7 @@ from selenium.webdriver.common.by import By
 # Custom 
 from html2text_ import clean, clean_text
 from utils import get_links, waitForDownload, delete_file_if_exists, getActiveText
-from utils import page2href, get_links, formatPageURL
+from utils import page2href, get_links, formatPageURL, retextMarkdownLinks
 
 
 class NavigatorHTML:
@@ -111,7 +111,7 @@ class WebNavigatorHTML:
         self.active_updated= True
         if markdown:
             self.parser = html2text.HTML2Text()
-            self.parser.ignore_links = True
+            self.parser.ignore_links = False
             self.parser.images_to_alt = True
             self.parser.body_width = 0
         else:
@@ -216,6 +216,7 @@ class WebNavigatorHTML:
         # html -> text
         if self.parser:
             df["text"] = df["elements"].apply(lambda x : self.parser.handle(x))
+            df["text"] = df["text"].apply(retextMarkdownLinks)
         else:
             df["text"] = df["elements"].apply(clean_text)
         df["activeText"] = df.apply(lambda x : getActiveText(x["text"], x["tag"], x["skipTop"], x
@@ -252,3 +253,14 @@ class WebNavigatorHTML:
             self.updateActive()
         links = self.df["activeLinks"].explode().dropna().tolist()
         return links
+    
+    def getScrollPosition(self):
+        """
+        Get the scroll position for the active elements.
+        """
+        if self.active_updated:
+            self.updateActive()
+        currScroll = self.df.iloc[0]["currScroll"]
+        maxScroll = self.df.iloc[0]["maxScroll"]
+        return currScroll, maxScroll
+        
