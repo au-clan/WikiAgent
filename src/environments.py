@@ -121,13 +121,10 @@ class WebWikiEnvironment(WikiEnvironment):
     
     def _set_current_page(self, new_page: str):
         self.current_page = wikify_article_name(new_page)
-        self.nav.movePage(quote(self.current_page))
+        self.nav.movePage(self.current_page)
 
     def _set_links(self):
-        ### dirty fix for invalid links
-        self.links = [unquote(link) for link in self.nav.getLinks()
-                      if link != "index" 
-                      if not link.startswith("subject.") and not link.endswith(".jpg")]
+        self.links = self.nav.getLinks()
     
     def _set_content(self, html=False):
         if html:
@@ -166,3 +163,12 @@ class WebWikiEnvironment(WikiEnvironment):
             self._set_links()
         else:
             raise Exception("Cannot go back any further. Choose a different action.")
+    
+    def change_env(self, agent_id):
+        """
+        Switch to the environment (tab) of the specified agent.
+        """
+        self.nav.switchTab(agent_id)
+        self._set_content()
+        self._set_links()
+        # self.current_page : Not sure yet how to handle this.
