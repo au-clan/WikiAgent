@@ -307,3 +307,23 @@ def formatPageURL(page):
     """
     source = "file://" + str(Path(os.getcwd()).parents[1]) + "/data/wpcd/wp/{}/{}.htm".format(page.lower()[0], page)
     return source
+
+def retextMarkdownLinks(text) : 
+    """
+    Simplifies markdown links.
+    eg. 
+    [ European Union ](../../wp/e/European_Union.htm "European Union") -> [European Union)(European_Union)
+    """
+
+    # [ * ] -> [*]
+    pattern = r'\[\s*(.*?)\s*\]'
+    text = re.sub(pattern, r'[\1]', text)
+
+    # (../../wp/p/Page.htm *) -> (../../wp/p/Page.htm)
+    pattern = r'(\.htm)[^\)]*'
+    text = re.sub(pattern, r'\1', text)
+
+    # (../../wp/p/Page.htm) -> (Page)
+    pattern = r'../../wp/./(.*?).htm'
+    text = re.sub(pattern, r'\1', text)
+    return text
