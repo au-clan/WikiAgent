@@ -46,6 +46,7 @@ async def main(cfg: DictConfig):
         else:
             agent.model_cfg=cfg.model
             agent.model=model
+            agent.set_tokenizer()
         agent.set_target_page(path["tgt"])
         agent.set_agent_id(i)
         agents.append(agent)
@@ -61,13 +62,11 @@ async def main(cfg: DictConfig):
             batch_processor.cancel()
         else:
             results = await asyncio.gather(*agent_tasks, return_exceptions=False)
-        # cancel all tasks
-        for task in agent_tasks:
-            task.cancel()
         print(f"Run finished with {results.count(True)} successes and {results.count(False)} failures.")
     except Exception as e:
         raise e
- 
+    torch.cuda.empty_cache()
+    
     print(f"Total time taken: {time() - start:.1f} seconds")
     print(f"Average time per action: {(time() - start) / sum([agent.num_actions for agent in agents]):.2f}s for {sum([agent.num_actions for agent in agents])} actions")
 

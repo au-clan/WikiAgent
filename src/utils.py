@@ -329,3 +329,20 @@ def retextMarkdownLinks(text) :
     pattern = r'../../wp/./(.*?).htm'
     text = re.sub(pattern, r'\1', text)
     return text
+
+def filter_links_from_text(text, valid_links):
+    # Regular expression pattern to find all [content](link) occurrences
+    pattern = r'\[([^\]]+)\]\(([^)]+)\)'
+
+    # Function to decide whether to keep the word or just the content
+    def replace_func(match):
+        content, word = match.groups()
+        # Check if the content is empty or the word is not in the list
+        if not content or word not in valid_links:
+            return content
+        else:
+            return f"[{content}]({word})"
+
+    # Use re.sub() to apply the replace_func to all matches
+    reformatted_text = re.sub(pattern, replace_func, text)
+    return reformatted_text

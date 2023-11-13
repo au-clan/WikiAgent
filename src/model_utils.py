@@ -16,6 +16,9 @@ class BaseMessage:
     ext_visible: bool = field(default=True)
     alt_role: str = field(default=None)
 
+    def __getitem__(self, key):
+        return getattr(self, key, None)
+    
     def format_prompt(self, before, to):
         self.content = self.content.replace("{" + before + "}", f"{to}")
         return self
@@ -51,8 +54,6 @@ class BaseMessage:
     def __str__(self):
         return self.content
 
-    def __getitem__(self, key):
-        return self.__dict__[key]
 
 
 @define
@@ -83,11 +84,10 @@ class HumanMessage(BaseMessage):
     def prepare_for_completion(self):
         return f"\nUser: {self.content}"
 
-
 @define
 class SystemMessage(BaseMessage):
     role: str = "system"
-
+    
     def __add__(self, otherSystem):
         # i think this is the only class that will require adding.
         return SystemMessage(self.content + "\n" + otherSystem.content)
@@ -113,6 +113,7 @@ class ChatModel:
     model_key_path: Any = field(default='secrets.json')
     model_key_name: Any = field(default=None)
     model: Any = field(default=None)
+    model_type: str = field(default='chat')
 
     debug_mode: bool = field(default=False)
     temperature: float = field(default=0.0)
@@ -304,3 +305,13 @@ def get_api_settings(api_provider, fpath='data/api_settings/apis.yaml'):
 def printc_prompt(prompt: List[BaseMessage], c="r"):
     for msg in prompt:
         printc(f"[{msg.role.upper()}]: {msg.content}", c=c)
+
+def prepare_chat(tokenizer, chat: List[BaseMessage]) -> str:
+    """
+    This method prepares the chat for generation.
+    """
+    # if there's no 'system' role in chat_template, append system message to first user message
+    if not "'system'" in tokenizer.chat_template:
+        first_user_message = chat[0].content + "\n" + chat[1].content
+        chat = [HumanMessage(first_user_message)] + chat[2:]
+    return tokenizer.apply_chat_template(chat, tokenize=False)

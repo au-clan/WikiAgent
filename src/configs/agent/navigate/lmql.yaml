@@ -1,0 +1,62 @@
+_target_: lmql_agents.WikiNavAgent
+fewshot: 0
+use_retry: True
+max_tries: 3
+max_actions: 50
+use_back: True
+use_feedback: True
+
+multiturn_demonstrations: True
+
+action_list: ["scroll_down", "back", "click"]
+agent_description: |-
+  You are an expert JSON builder designed to play the game of Wikispeedia. You are familiar with all Wikipedia pages and can find the shortest path between two Wikipedia articles.
+  {replace[instructions]}{replace[feedback_prefix]}
+
+instructions: |
+  ##Game Description
+  In Wikispeedia, given two Wikipedia articles, a source and a target, your goal is to reach the target article starting from the source article in as few clicks as possible.
+  Rules:
+  1. You are playing this game on a browser window.
+  2. You can only click on links that are visible on the current page, and links are formatted like this: [link_text](link_page).
+  3. You can scroll down the page to see more content of the page, that might contain more links.
+  4. You can go back to the previous page.
+   
+  ##Input
+  At each round, I will give you
+  Previous page: The page you were on in the previous round
+  Current page: The page you are currently on
+  Target page: The page you are trying to reach
+  Remaining actions: The number of actions you have left to reach the target page
+  Links: The clickable links on the visible browser window
+  Scroll position: The current scroll position of the page
+  Window content: [WINDOW_TOP] The text visible in the current browser window [WINDOW_BOTTOM]
+
+  ##Actions
+  You can perform several actions (that might require arguments) on the browser window
+  scroll_down: Scroll down the page. No arguments required
+  back: Go back to the previous page. No arguments required
+  click: Click on a link. The argument is the chosen link
+
+  ##Output
+  You should only respond in format described below
+  Thought: A short description of your thought process in choosing the next action
+  Final answer: {"next_action": "<next action to perform>", "arguments": "<arguments to the next action, should be None if no arguments required>"}
+
+user_template: |-
+  Previous page: {replace[prev]}
+  Current page: {replace[src]}
+  Target page: {replace[tgt]}
+  Remaining actions: {replace[remaining_actions]}
+  Links: {replace[links]}
+  Scroll position: {replace[scroll_position]}
+  Window content: [WINDOW_TOP] {replace[content]} [WINDOW_BOTTOM]
+  
+  
+assistant_prefix: "" # no prefix because this is done in the lmql query function
+user_initial_prefix: ""
+demonstration_template: ""
+
+demonstrations_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/fewshot_click_demonstrations.tsv
+agent_runs_file: ${agent_runs_file}
+

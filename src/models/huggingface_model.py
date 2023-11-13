@@ -67,21 +67,13 @@ class HuggingFaceModel(ChatModel):
             # turn single input into a batch
             data = [data]
 
-        if "chat" in self.model_name.lower() or "instruct" in self.model_name.lower(): ###
-            msges = [[k.prepare_for_generation() for k in data]
-                        for data in data]
-            if "mistral" in self.model_name.lower():
-                concat_msges = [preprocess_mistral_chat(msg) for msg in msges]
-            else:
-                concat_msges = [preprocess_llama_chat(msg) for msg in msges]
-            self.raw_prompt = concat_msges
+        if self.model_type == "chat":
+            concat_msges = [self.prepare_chat(chat) for chat in data]
 
-        else:
+        else: # model_type=="completion"
                 msges = [[k.prepare_for_completion() for k in data]
                                 for data in data]
                 concat_msges = [''.join(msg) for msg in msges]
-                # for msg in msges:
-                #     concat_msges += msg + "\n"
 
         self.prompt_tokens = self.estimate_tokens(concat_msges)
         self.raw_prompt = concat_msges
@@ -190,6 +182,16 @@ class HuggingFaceModel(ChatModel):
         #     self.generator.tokenizer.pad_token_id = self.tokenizer.eos_token_id            
         # self.tokenizer = self.generator.tokenizer
 
+    def prepare_chat(self, chat: List[BaseMessage]) -> str:
+        """
+        This method prepares the chat for generation.
+        """
+        # if there's no 'system' role in chat_template, append system message to first user message
+        if not "'system'" in self.tokenizer.chat_template:
+            first_user_message = chat[0].content + " " + chat[1].content
+            chat = [HumanMessage(first_user_message)] + chat[2:]
+        
+        return self.tokenizer.apply_chat_template(chat, tokenize=False)
 
 
     def get_stopping_criteria(self):

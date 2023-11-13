@@ -119,12 +119,11 @@ class WebWikiEnvironment(WikiEnvironment):
 
     nav = field(factory=WebNavigatorHTML)
     position = field(factory=tuple)
-    
+    html = field(default=False)
+
     def __attrs_post_init__(self):
         self._set_position()
         super().__attrs_post_init__()
-
-    html = field(default=False)
 
     def _set_current_page(self, new_page: str):
         new_page_wikified= wikify_article_name(new_page)

@@ -154,15 +154,19 @@ class Agent:
             # current user prompt
             user_message_content += self.user_template.format(replace = env_data)
             user_message = HumanMessage(content = user_message_content)
-            assistant_prefix = AIMessagePrefix(self.assistant_prefix)
+            ### TODO: make this work with LMQL
+            # assistant_prefix = AIMessagePrefix(self.assistant_prefix)
 
-            prompt.append(user_message); prompt.append(assistant_prefix)
+            prompt.append(user_message)
+            # prompt.append(assistant_prefix)
             self.prompt = prompt
         else: #got feedback
             # append bad response and feedback to the prompt
-            self.prompt.append(AIMessageCompletion(self.raw_response_history[-1]))
+            ### TODO: make this work with LMQL
+            # self.prompt.append(AIMessageCompletion(self.raw_response_history[-1]))
+            self.prompt.append(AIMessage(self.raw_response_history[-1]))
             self.prompt.append(HumanMessage(feedback))
-            self.prompt.append(AIMessagePrefix(self.assistant_prefix))
+            # self.prompt.append(AIMessagePrefix(self.assistant_prefix))
             prompt = self.prompt    
         return prompt
     
