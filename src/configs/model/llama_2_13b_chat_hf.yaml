@@ -2,8 +2,9 @@ _target_: models.huggingface_model.HuggingFaceModel
 model_provider: huggingface
 model_name: meta-llama/Llama-2-13b-chat-hf
 model_path: ${nfs_dir}/llama2_hf/Llama-2-13b-chat-hf/
+model_type: chat
 
-temperature: 0.7
+temperature: 0.5
 half_precision: False #set to False if on CPU
 num_threads: 16
 batch_size: 1

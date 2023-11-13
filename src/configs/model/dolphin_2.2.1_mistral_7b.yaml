@@ -1,0 +1,15 @@
+_target_: models.huggingface_model.HuggingFaceModel
+model_provider: huggingface
+model_name: ehartford/dolphin-2.2.1-mistral-7b
+model_path:
+model_type: chat
+
+temperature: 0.5
+half_precision: False #set to False if on CPU
+num_threads: 16
+batch_size: 1
+top_p: 1
+do_sample: True # if False is the same as temperature = 0
+device: 'cpu' # or cuda
+
+stop: '}'
