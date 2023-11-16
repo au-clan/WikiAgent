@@ -126,7 +126,7 @@ class WebNavigatorHTML:
         
         self.driver.switch_to.window(original_tab)
         self.driver.close()
-        self.driver.switch_to.window(self.agentTabs[0])
+        self.driver.switch_to.window(list(self.agentTabs.values())[0])
     
     def switchTab(self, agent):
         """
