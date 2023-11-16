@@ -100,22 +100,23 @@ class WebNavigatorHTML:
     Second implementation of the HTML Navigator.
     Opens the page in a browser and moves by interacting with the page.
     """
-    def __init__(self, driver, pages, downloads_folder, agents=None, markdown=False, emptyActivePages=True):
+    def __init__(self, driver, pages, downloads_folder, agents=None, markdown=False, emptyActivePages=True, onFly = False):
         self.driver = driver
+        self.onFly = onFly
         self.agentTabs = {}
         if agents is None:
             agents = list(range(len(pages)))
         
-        # Folder where active pages are stored
-        self.activePagesPath = getWikiNavFolder() + "/data/wpcd/wp/activePages/" 
-        
-        # If the folder doesn't exist already create it
-        if not os.path.exists(self.activePagesPath):
-            os.makedirs(self.activePagesPath)
-
-        # If asked empty active pages folder from previous navigators
-        if emptyActivePages:
-            emptyFolder(self.activePagesPath) 
+        # In case html pages should be formatted on the fly
+        if onFly:
+            # Folder where active pages are stored
+            self.activePagesPath = getWikiNavFolder() + "/data/wpcd/wp/activePages/" 
+            # If the folder doesn't exist already create it
+            if not os.path.exists(self.activePagesPath):
+                os.makedirs(self.activePagesPath)
+            # If asked empty active pages folder from previous navigators
+            if emptyActivePages:
+                emptyFolder(self.activePagesPath) 
 
         self.initTabs(agents, pages)
 
@@ -138,10 +139,13 @@ class WebNavigatorHTML:
         for agent, page in zip(agents, pages):
             self.driver.switch_to.new_window("tab")
             self.agentTabs[agent] = self.driver.current_window_handle
-            originalPagePath = formatPageURL(page)
-            formattedPagePath = self.activePagesPath + page + ".htm"
-            formatHTML(originalPagePath, formattedPagePath)
-            self.driver.get("file://" + formattedPagePath)
+            if self.onFly:
+                originalPagePath = formatPageURL(page)
+                formattedPagePath = self.activePagesPath + page + ".htm"
+                formatHTML(originalPagePath, formattedPagePath)
+                self.driver.get("file://" + formattedPagePath)
+            else:
+                self.driver.get("file://"+formatPageURL(page))
         
         self.driver.switch_to.window(original_tab)
         self.driver.close()
@@ -164,6 +168,12 @@ class WebNavigatorHTML:
         try :
             element = self.driver.find_element(By.CSS_SELECTOR, "a[href='{}']".format(link))
             element.click()
+            if self.onFly:
+                pageSource = self.driver.page_source
+                with open(self.activePagesPath+page+".htm", 'w') as file:
+                    file.write(pageSource)
+                formatHTML(self.activePagesPath+page+".htm", self.activePagesPath+page+".htm")
+                self.driver.get("file://" + self.activePagesPath+page+".htm")
             self.active_updated= True
         except Exception as e:
             print(e)
