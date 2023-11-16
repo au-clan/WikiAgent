@@ -2,7 +2,7 @@ import hydra
 import json, re
 import regex
 import yaml
-import os
+import os, shutil
 import pandas as pd
 from omegaconf import DictConfig
 from math import floor, ceil
@@ -307,7 +307,7 @@ def formatPageURL(page):
     Given just the name of the file it formats it into the URL so it can be used by the selenium driver.
     --> This might need to be updated as it covers all pages except for the ones in the "index" folder.
     """
-    source = "file://" + os.path.join(ROOT_DIR, "data/wpcd/wp/{}/{}.htm".format(page.lower()[0], page))
+    source = os.path.join(ROOT_DIR, "data/wpcd/wp/{}/{}.htm".format(page.lower()[0], page))
     return source
 
 def retextMarkdownLinks(text) : 
@@ -346,3 +346,23 @@ def filter_links_from_text(text, valid_links):
     # Use re.sub() to apply the replace_func to all matches
     reformatted_text = re.sub(pattern, replace_func, text)
     return reformatted_text
+
+def emptyFolder(path):
+    """
+    Given a directory path, it empties it. 
+    """
+    for item in os.listdir(path):
+        item_path = os.path.join(path, item)
+        if os.path.isfile(item_path):
+            os.remove(item_path)
+        elif os.path.isdir(item_path):
+            shutil.rmtree(item_path)
+
+def getWikiNavFolder():
+    """
+    Returns the absolute path to the WikiNav folder.
+    """
+    current_dir = os.getcwd()
+    root = current_dir.split("/WikiNav/")[0]
+    wikinavFolder = os.path.join(root, "WikiNav")
+    return wikinavFolder

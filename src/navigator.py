@@ -9,6 +9,8 @@ from selenium.webdriver.common.by import By
 from html2text_ import clean, clean_text
 from utils import get_links, waitForDownload, delete_file_if_exists, getActiveText
 from utils import page2href, get_links, formatPageURL, retextMarkdownLinks
+from utils import getWikiNavFolder, emptyFolder
+from formatHTML import formatHTML
 
 
 class NavigatorHTML:
@@ -98,12 +100,26 @@ class WebNavigatorHTML:
     Second implementation of the HTML Navigator.
     Opens the page in a browser and moves by interacting with the page.
     """
-    def __init__(self, driver, pages, downloads_folder, agents=None, markdown=False):
+    def __init__(self, driver, pages, downloads_folder, agents=None, markdown=False, emptyActivePages=True):
         self.driver = driver
         self.agentTabs = {}
         if agents is None:
             agents = list(range(len(pages)))
+        
+        # Folder where active pages are stored
+        self.activePagesPath = getWikiNavFolder() + "/data/wpcd/wp/activePages/" 
+        
+        # If the folder doesn't exist already create it
+        if not os.path.exists(self.activePagesPath):
+            os.makedirs(self.activePagesPath)
+
+        # If asked empty active pages folder from previous navigators
+        if emptyActivePages:
+            emptyFolder(self.activePagesPath) 
+
         self.initTabs(agents, pages)
+
+        
         
         file_name = "active_elements.json" # Name of the file downloaded - Defined already by JS
         self.file_path = os.path.join(downloads_folder, file_name)
@@ -122,7 +138,10 @@ class WebNavigatorHTML:
         for agent, page in zip(agents, pages):
             self.driver.switch_to.new_window("tab")
             self.agentTabs[agent] = self.driver.current_window_handle
-            self.driver.get(formatPageURL(page))
+            originalPagePath = formatPageURL(page)
+            formattedPagePath = self.activePagesPath + page + ".htm"
+            formatHTML(originalPagePath, formattedPagePath)
+            self.driver.get("file://" + formattedPagePath)
         
         self.driver.switch_to.window(original_tab)
         self.driver.close()
