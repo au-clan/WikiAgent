@@ -5,7 +5,7 @@ model_path: ${nfs_dir}/llama2_hf/Llama-2-7b-chat-hf/
 model_type: chat
 
 temperature: 0.5
-half_precision: False #set to False if on CPU
+dtype: float32 #set to False if on CPU
 num_threads: 16
 batch_size: 1
 top_p: 1

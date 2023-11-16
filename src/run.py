@@ -30,7 +30,7 @@ async def main(cfg: DictConfig):
         model = lmql.model(f"local:{cfg.model['model_path']}" if cfg.model['model_path'] else f"local:{cfg.model['model_name']}", 
                             cuda=True if cfg.model['device']=='cuda' else False, 
                             batch_size=cfg.model['batch_size'],
-                            dtype='float16' if cfg.model['half_precision'] else 'float32',
+                            dtype=cfg.model['dtype'],
                             inprocess=False,
                             )
     paths_real = get_paths_real_sample(n=cfg.experiment.num_agents, paths_real_file=cfg.paths_real_file)

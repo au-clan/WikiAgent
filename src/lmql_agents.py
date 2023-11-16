@@ -74,7 +74,7 @@ class LMQLLinkClickDFSAgent(LinkClickDFSAgent):
             links.append("NA")
 
         printc(f"Agent {self.agent_id} says: {prompt[-1].content}")
-        printc_prompt(self.prompt, c='p')
+        # printc_prompt(self.prompt, c='p')
     
         self.user_prompt_history.append(prompt[-1].content)
         start = time()
@@ -84,10 +84,10 @@ class LMQLLinkClickDFSAgent(LinkClickDFSAgent):
             input_ = input("Response from model:")
             response = input_
         ### TODO: fix this for non llama
-        self.raw_response_history.append(response.prompt.split("[/INST]")[-1])
-        printc(response, c='y')
+        # self.raw_response_history.append(response.prompt.split("[/INST]")[-1])
+        printc(f"Number of tokens in prompt:{len(self.tokenizer(response.prompt)['input_ids'])}",c='y')
 
-        printc(f"Agent {self.agent_id} received response. Time in queue: {time() - start} seconds. Response:\n{response.prompt.split('[/INST]')[-1]}")
+        printc(f"Agent {self.agent_id} received response. Time in queue: {time() - start} seconds. Response:\n{response.variables}")
         self.response_history.append(response.variables)
         actions = response.variables
         self.apply_actions(actions)
