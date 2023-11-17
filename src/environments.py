@@ -120,21 +120,27 @@ class WebWikiEnvironment(WikiEnvironment):
     nav = field(factory=WebNavigatorHTML)
     position = field(factory=tuple)
     html = field(default=False)
+    headings = field(factory=list)
 
     def __attrs_post_init__(self):
         self._set_position()
+        self._set_headings()
         super().__attrs_post_init__()
 
     def _set_current_page(self, new_page: str):
         new_page_wikified= wikify_article_name(new_page)
         self.nav.movePage(quote(quote(new_page_wikified)))
         self.current_page = new_page_wikified
+        self._set_headings()
     
     def _set_position(self):
         self.position = self.nav.getScrollPosition()
 
     def _set_links(self):
         self.links = [unquote(unquote(link)) for link in self.nav.getLinks()]
+    
+    def _set_headings(self):
+        self.headings = self.nav.getHeadings()
     
     def _set_content(self):
         if self.html:
@@ -153,14 +159,16 @@ class WebWikiEnvironment(WikiEnvironment):
 
     def move(self, direction: str):
         """
-        Moves the window down or up.
+        Moves the window down, up or to a specific heading.
         """
         if direction.strip().lower() == "down":
             self.nav.moveDown()
         elif direction.strip().lower() == "up":
             self.nav.moveUp()
+        elif direction in self.headings:
+            self.nav.moveHeading(direction)
         else:
-            raise Exception("Invalid direction. Choose either 'up' or 'down'.")
+            raise Exception("Invalid direction. Choose either 'up' or 'down' or specific heading.")
         self._set_content()
         self._set_links()
         self._set_position()
@@ -179,6 +187,7 @@ class WebWikiEnvironment(WikiEnvironment):
             self._set_content()
             self._set_links()
             self._set_position()
+            self._set_headings()
         else:
             raise Exception("Cannot go back any further. Choose a different action.")
     
@@ -190,4 +199,5 @@ class WebWikiEnvironment(WikiEnvironment):
         self._set_content()
         self._set_links()
         self._set_position()
+        self._set_headings()
         # self.current_page : Not sure yet how to handle this.

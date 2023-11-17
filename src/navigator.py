@@ -9,7 +9,7 @@ from selenium.webdriver.common.by import By
 from html2text_ import clean, clean_text
 from utils import get_links, waitForDownload, delete_file_if_exists, getActiveText
 from utils import page2href, get_links, formatPageURL, retextMarkdownLinks
-from utils import getWikiNavFolder, emptyFolder
+from utils import getWikiNavFolder, emptyFolder, getHeadings, getTextHTML
 from formatHTML import formatHTML
 
 
@@ -108,7 +108,7 @@ class WebNavigatorHTML:
             agents = list(range(len(pages)))
         
         # In case html pages should be formatted on the fly
-        if onFly:
+        if self.onFly:
             # Folder where active pages are stored
             self.activePagesPath = getWikiNavFolder() + "/data/wpcd/wp/activePages/" 
             # If the folder doesn't exist already create it
@@ -157,6 +157,7 @@ class WebNavigatorHTML:
         """
         assert agent in self.agentTabs.keys(), "Agent {} not found !".format(agent)
         self.driver.switch_to.window(self.agentTabs[agent])
+        self.active_updated=True
 
     
     def movePage(self, page):
@@ -291,4 +292,39 @@ class WebNavigatorHTML:
         currScroll = self.df.iloc[0]["currScroll"]
         maxScroll = self.df.iloc[0]["maxScroll"]
         return currScroll, maxScroll
+    
+    def getHeadings(self):
+        """
+        Returns all headings of the current page.
+        """
+        page_source = self.driver.page_source
+        headings = getHeadings(page_source)
+        return headings
+    
+    def moveHeading(self, heading):
+        # In case nav just initialised or moved to a new page
+        if self.active_updated:
+            self.updateActive()
+        # Go to the top of the page and once there update active content.
+        maxScroll = self.df.iloc[0]["maxScroll"]
+        for i in range(maxScroll):
+            self.moveUp()
+        self.updateActive()
+
+        scrolls = 0
+        headingNotFound = True
+        while headingNotFound and scrolls<=maxScroll+1:
+            test_df = self.df[self.df.tag.str.startswith("H")].copy()
+            test_df["headings"] = test_df["elements"].apply(getTextHTML)
+
+            corr_element = test_df[test_df.headings == heading]
+            if len(corr_element)>0:
+                index = corr_element.index[0]
+                self.df = self.df[self.df.index>=index]
+                headingNotFound=False
+            else:
+                self.moveDown()
+                self.updateActive()
+                scrolls +=1
+        return not headingNotFound
         
