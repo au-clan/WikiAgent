@@ -1,4 +1,4 @@
-_target_: lmql_agents.WikiNavAgent
+_target_: lmql_agents.WikiTextAgent
 fewshot: 0
 use_retry: True
 max_tries: 3

@@ -243,6 +243,8 @@ class BaseWikiAgent(Agent):
     max_tries: int = field(default=3) # retry same prompt
     max_actions: int = field(default=15)
 
+    raise_error: bool = field(default=False)
+
     def set_target_page(self, target_page: str):
         self.target_page = wikify_article_name(target_page)
 
@@ -300,6 +302,8 @@ class BaseWikiAgent(Agent):
                 self.num_actions += 1
                 self.num_tries = 0
             except Exception as e:
+                if self.raise_error:
+                    raise e
                 printc(f"Error in agent {self.agent_id}: {e}", c="r")
                 self.action_history.append(str(e))
                 self.num_actions += 1

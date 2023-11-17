@@ -98,7 +98,7 @@ class WebNavigatorHTML:
     Second implementation of the HTML Navigator.
     Opens the page in a browser and moves by interacting with the page.
     """
-    def __init__(self, driver, pages, downloads_folder, agents=None, markdown=False):
+    def __init__(self, driver, pages, downloads_folder, agents=None, markdown=True):
         self.driver = driver
         self.agentTabs = {}
         if agents is None:
@@ -219,8 +219,7 @@ class WebNavigatorHTML:
             df["text"] = df["text"].apply(retextMarkdownLinks)
         else:
             df["text"] = df["elements"].apply(clean_text)
-        df["activeText"] = df.apply(lambda x : getActiveText(x["text"], x["tag"], x["skipTop"], x
-        ["skipBot"], x["active"]), axis=1)
+        df["activeText"] = df.apply(lambda x : getActiveText(x["text"], x["tag"], x["skipTop"], x["skipBot"], x["active"]), axis=1)
         df["activeLinks"] = df["elements"].apply(get_links)
         self.df = df
         self.active_updated = False

@@ -138,7 +138,6 @@ async def test_run(cfg: DictConfig):
     options.add_argument('--headless')
     options.add_argument('--disable-gpu')  # Necessary for running in headless mode on some systems
     options.add_argument('--no-sandbox') 
-
     model = None
     if not 'lmql' in cfg.agent._target_:
         model = instantiate(cfg.model)
@@ -147,18 +146,17 @@ async def test_run(cfg: DictConfig):
         model = lmql.model(f"local:{cfg.model['model_path']}" if cfg.model['model_path'] else f"local:{cfg.model['model_name']}", 
                             cuda=True if cfg.model['device']=='cuda' else False, 
                             batch_size=cfg.model['batch_size'],
-                            dtype='float16' if cfg.model['half_precision'] else 'float32',
+                            dtype=cfg.model['dtype'],
                             inprocess=False,
                             )
     paths_real = get_paths_real_sample(n=cfg.experiment.num_agents, paths_real_file=cfg.paths_real_file)
-
     agents = []
     envs = []
     for i,path in enumerate(paths_real):
         driver = webdriver.Chrome(options=options)
-        # nav = WebNavigatorHTML(driver, pages=[path['src']], downloads_folder="", markdown=False)
-        # env = WebWikiEnvironment(nav=nav, current_page=path['src'], html=True)
-        nav = WebNavigatorHTML(driver, pages=[cfg.experiment.src], downloads_folder="", markdown=True)
+        # nav = WebNavigatorHTML(driver, pages=[path['src']], downloads_folder="")
+        # env = WebWikiEnvironment(nav=nav, current_page=path['src'])
+        nav = WebNavigatorHTML(driver, pages=[cfg.experiment.src], downloads_folder="")
         env = WebWikiEnvironment(nav=nav, current_page=cfg.experiment.src)
         agent = instantiate(cfg.agent)
         agent.set_environment(env)
@@ -167,6 +165,7 @@ async def test_run(cfg: DictConfig):
         else:
             agent.model_cfg=cfg.model
             agent.model=model
+            agent.set_tokenizer()
         # agent.set_target_page(path["tgt"])
         agent.set_target_page(cfg.experiment.tgt)
         agent.set_agent_id(i)
@@ -315,5 +314,5 @@ def chat_template():
     print(tokenizer.apply_chat_template(chat, tokenize=False))
 
 if __name__ == "__main__":
-    # hydra_wrapper(test_run)
-    chat_template()
+    hydra_wrapper(test_run)
+    # chat_template()

@@ -2,7 +2,7 @@ _target_: models.huggingface_model.HuggingFaceModel
 model_provider: huggingface
 model_name: gpt2
 model_path:
-model_type: chat
+model_type: completion
 
 temperature: 0.5
 dtype: float32 #set to False if on CPU

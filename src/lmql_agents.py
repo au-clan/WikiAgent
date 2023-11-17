@@ -17,31 +17,6 @@ class LMQLLinkClickDFSAgent(LinkClickDFSAgent):
     def set_tokenizer(self):
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_cfg['model_name'])
         return super().__attrs_post_init__()
-    
-    @lmql.query(output_writer=lmql.printing)
-    async def lmql_query_reason(self, prompt: str, candidates: List[str]):
-        #
-        '''lmql
-        sample(n=1, temperature=self.model_cfg['temperature'], top_p=self.model_cfg['top_p'], max_len=2048)
-            "{prompt}"
-            """{{"reason": "The 5 most relevant pages to {self.target_page} are: """
-
-            relevant_links = []
-            for i in range(5):
-                '{i+1}.[relevant_link]: [explanation]' where relevant_link in set(candidates) and stops_at(explanation, '.') and stops_before(explanation, '"')
-                relevant_links.append(relevant_link)
-                if i < 4:
-                    ';'
-
-            """ Therefore, [reason], "next_page": "[next_page]"}}""" where next_page in set(relevant_links) and len(TOKENS(reason)) < 150 and stops_before(reason, '"') and stops_before(reason, '\n')
-            
-        
-        from
-            lmql.model(f"local:{self.model_cfg['model_path']}" if self.model_cfg['model_path'] else f"local:{self.model_cfg['model_name']}", 
-            cuda=True if self.model_cfg['device']=='cuda' else False, 
-            batch_size=self.model_cfg['batch_size'],
-            dtype='float16' if self.model_cfg['half_precision'] else 'float32',)
-        '''
 
     @lmql.query
     async def lmql_query(self, prompt: str, candidates: List[str]):
@@ -94,32 +69,32 @@ class LMQLLinkClickDFSAgent(LinkClickDFSAgent):
         self.action_history.append(actions)
 
 @define
-class WikiNavAgent(BaseWikiAgent):
+class WikiTextAgent(BaseWikiAgent):
     model: lmql.model = field(default=None)
     model_cfg: dict = field(default=None)
     action_list: List[str] = field(default=["scroll_down", "click", "back"])
     tokenizer = field(default=None)
 
-    def __attrs_post_init__(self):
+    def set_tokenizer(self):
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_cfg['model_name'])
         return super().__attrs_post_init__()
-    
+
     @lmql.query
     async def lmql_query(self, prompt: str):
         '''lmql
         sample(n=1, temperature=self.model_cfg['temperature'], top_p=self.model_cfg['top_p'], max_len=4096)
-            "{prompt}"
-            """Thought: [thought]\n""" where stops_before(thought, "\n") and len(TOKENS(thought)) < 50
-            """Final answer: {{"next_action": "[next_action]",""" where next_action in set(self.action_list)
-            if next_action=="click":
-                """ "arguments": "[arguments]"}}""" where arguments in set(self.environment.links)
-            else:
-                """" "arguments": ""}}"""
+        "{prompt}"
+        "Thought:\nLet's think step by step. The [thought]\n" where stops_before(thought, '\n')
+        "Action:\n[next_action]" where next_action in set(self.action_list)
+        if next_action=='click':
+            "([link])" where link in set(self.environment.links)
         '''
     def observe_environment(self):
+        ## for DFS
         self.environment.remove_pages_from_links(self.visited_pages)
         self.environment.content = filter_links_from_text(self.environment.content, self.environment.links)
         prev_page = self.environment.page_history[-2] if len(self.environment.page_history) > 1 else "none"
+
         observed_data = {
             "prev": prev_page,
             "src": self.environment.current_page,
@@ -127,7 +102,7 @@ class WikiNavAgent(BaseWikiAgent):
             "links": ";".join(self.environment.links),
             "content": self.environment.content,
             "remaining_actions": f"{self.max_actions - self.num_actions}/{self.max_actions}",
-            "scroll_position": f"{self.environment.position[0]}/{self.environment.position[1]}"
+            "remaining_scrolls": self.environment.position[1] - self.environment.position[0],
         }
         return observed_data
 
@@ -140,7 +115,7 @@ class WikiNavAgent(BaseWikiAgent):
         if actions['next_action'] == "scroll_down":
             self.environment.move("down")
         elif actions['next_action'] == "click":
-            self.environment.change_page(actions['arguments'])
+            self.environment.change_page(actions['link'])
         else: # actions['next_action'] == "back":
             self.environment.back()
         
@@ -162,8 +137,8 @@ class WikiNavAgent(BaseWikiAgent):
         if self.use_back and self.environment.current_page != self.source_page:
             links.append("NA")
 
-        printc(f"Agent {self.agent_id} says: {prompt[-1].content}")
-        printc_prompt(self.prompt, c='p')
+        ###printc(f"Agent {self.agent_id} says: {prompt[-1].content}")
+        printc(prepared_prompt, c='p')
     
         self.user_prompt_history.append(prompt[-1].content)
         start = time()
@@ -174,7 +149,7 @@ class WikiNavAgent(BaseWikiAgent):
             response = input_
         ### TODO: fix this for non llama
         self.raw_response_history.append(response.prompt.split("[/INST]")[-1])
-
+        printc(f"response.variables: {response.variables}", c='y')
         printc(f"Agent {self.agent_id} received response. Time in queue: {time() - start} seconds. Response:\n{response.prompt.split('[/INST]')[-1]}")
         self.response_history.append(response.variables)
         actions = response.variables

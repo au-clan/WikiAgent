@@ -1,4 +1,4 @@
-_target_: lmql_agents.WikiNavAgent
+_target_: lmql_agents.WikiTextAgent
 fewshot: 0
 use_retry: True
 max_tries: 3
@@ -10,51 +10,30 @@ multiturn_demonstrations: True
 
 action_list: ["scroll_down", "back", "click"]
 agent_description: |-
-  You are an expert JSON builder designed to play the game of Wikispeedia. You are familiar with all Wikipedia pages and can find the shortest path between two Wikipedia articles.
-  {replace[instructions]}{replace[feedback_prefix]}
+  You are a helpful assistant that helps the User complete tasks.
 
 instructions: |
-  ##Game Description
-  In Wikispeedia, given two Wikipedia articles, a source and a target, your goal is to reach the target article starting from the source article in as few clicks as possible.
-  Rules:
-  1. You are playing this game on a browser window.
-  2. You can only click on links that are visible on the current page, and links are formatted like this: [link_text](link_page).
-  3. You can scroll down the page to see more content of the page, that might contain more links.
-  4. You can go back to the previous page.
-   
-  ##Input
-  At each round, I will give you
-  Previous page: The page you were on in the previous round
-  Current page: The page you are currently on
-  Target page: The page you are trying to reach
-  Remaining actions: The number of actions you have left to reach the target page
-  Links: The clickable links on the visible browser window
-  Scroll position: The current scroll position of the page
-  Window content: [WINDOW_TOP] The text visible in the current browser window [WINDOW_BOTTOM]
-
-  ##Actions
-  You can perform several actions (that might require arguments) on the browser window
-  scroll_down: Scroll down the page. No arguments required
-  back: Go back to the previous page. No arguments required
-  click: Click on a link. The argument is the chosen link
-
-  ##Output
-  You should only respond in format described below
-  Thought: A short description of your thought process in choosing the next action
-  Final answer: {"next_action": "<next action to perform>", "arguments": "<arguments to the next action, should be None if no arguments required>"}
+  I'm playing a game with the objective of getting from a source Wikipedia article to a target article in the least amount of clicks.
+  I can only click on articles that are visible on the current page, and the clickable articles are formatted like this: [article_text](article).
+  I can also scroll down the page to see more content and links, or go back to the previous page.
+  Always respond to me in the format:
+  Thought:
+  [your thought process in one line]
+  Action:
+  [action I should take]
 
 user_template: |-
-  Previous page: {replace[prev]}
-  Current page: {replace[src]}
-  Target page: {replace[tgt]}
-  Remaining actions: {replace[remaining_actions]}
-  Links: {replace[links]}
-  Scroll position: {replace[scroll_position]}
-  Window content: [WINDOW_TOP] {replace[content]} [WINDOW_BOTTOM]
+  Here's what I see on the page:
+  [WINDOW_TOP]
+  {replace[content]}
+  [WINDOW_BOTTOM]
+  I'm on the Wikipedia page for {replace[src]} and I want to get to the page for {replace[tgt]} in the least amount of clicks. The articles that I can click on now are: {replace[links]}.
+  I have {replace[remaining_scrolls]} scrolls left on this page. I can either: click on a link that will get me closer to the target, scroll down the page, or go back to the previous page: {replace[prev]}. First tell me your thought process and then tell me what to do. Respond with "back", "click(article)", or "scroll_down".
   
+user_initial_prefix: |
+  {replace[instructions]}{replace[feedback_prefix]}
   
 assistant_prefix: "" # no prefix because this is done in the lmql query function
-user_initial_prefix: ""
 demonstration_template: ""
 
 demonstrations_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/fewshot_click_demonstrations.tsv
