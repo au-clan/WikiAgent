@@ -25,10 +25,6 @@ os.environ['HYDRA_FULL_ERROR'] = '1'
 
 async def main(cfg: DictConfig):
     start = time()
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
-    options.add_argument('--disable-gpu')  # Necessary for running in headless mode on some systems
-    options.add_argument('--no-sandbox') 
     model = lmql.model(f"local:{cfg.model['model_path']}" if cfg.model['model_path'] else f"local:{cfg.model['model_name']}", 
                         cuda=True if cfg.model['device']=='cuda' else False, 
                         **cfg.model.lmql
@@ -36,9 +32,7 @@ async def main(cfg: DictConfig):
     paths_real = get_paths_real_sample(n=cfg.experiment.num_agents, paths_real_file=cfg.paths_real_file)
     agents = []
     for i,path in enumerate(paths_real):
-        # driver = webdriver.Chrome(options=options)
-        # nav = WebNavigatorHTML(driver, pages=[path['src']], downloads_folder="")
-        # env = WebWikiEnvironment(nav=nav, current_page=path['src'])
+        path['src'] = cfg.experiment.src; path['tgt'] = cfg.experiment.tgt ###
         env_kwargs = {"current_page": path["src"], "links_file": cfg.links_file}
         agent = instantiate(cfg.agent)
         agent.initialize_environment(**env_kwargs)

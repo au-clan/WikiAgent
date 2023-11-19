@@ -17,7 +17,7 @@ class Environment:
     """
     Virtual environment class. Defines the main interface for the environment.
     """
-    current_page = field(factory=str)
+    current_page: str = field(default=None)
     content = field(default=None)
     page_history = field(factory=list) #this is basically the effective history
     full_page_history = field(factory=list) #this includes backtracks
@@ -56,7 +56,7 @@ class WikiEnvironment(Environment):
     """
 
     def __attrs_post_init__(self):
-        self.current_page = wikify_article_name(self.current_page)
+        self._set_current_page(self.current_page)
         self.page_history.append(self.current_page)
         self.full_page_history.append(self.current_page)
         self._set_content()
@@ -124,15 +124,17 @@ class WebWikiEnvironment(WikiEnvironment):
     headings = field(factory=list)
 
     def __attrs_post_init__(self):
-        self._set_position()
-        self._set_headings()
         super().__attrs_post_init__()
+        self._set_position()
 
     def _set_current_page(self, new_page: str):
         new_page_wikified= wikify_article_name(new_page)
-        self.nav.movePage(quote(quote(new_page_wikified)))
+        printc(f"Current page is {self.current_page}.", c="y")
+        new_page_wikified = quote(quote(new_page_wikified))
+        self.nav.movePage(new_page_wikified)
         self.current_page = new_page_wikified
         self._set_headings()
+        printc(f"Headings are {self.headings}.", c="y")
     
     def _set_position(self):
         self.position = self.nav.getScrollPosition()

@@ -134,62 +134,42 @@ async def game_environment(cfg: DictConfig):
 
 async def test_run(cfg: DictConfig):
     start = time()
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
-    options.add_argument('--disable-gpu')  # Necessary for running in headless mode on some systems
-    options.add_argument('--no-sandbox') 
-    model = None
-    if not 'lmql' in cfg.agent._target_:
-        model = instantiate(cfg.model)
-        handler = BatchHandler(model=model, batch_size=cfg.model.batch_size)
-    else:
-        # print already loaded config, without ${...}
-        model = lmql.model(f"local:{cfg.model['model_path']}" if cfg.model['model_path'] else f"local:{cfg.model['model_name']}", 
-                            cuda=True if cfg.model['device']=='cuda' else False, 
-                            **cfg.model.lmql
-                            )
+    model = lmql.model(f"local:{cfg.model['model_path']}" if cfg.model['model_path'] else f"local:{cfg.model['model_name']}", 
+                        cuda=True if cfg.model['device']=='cuda' else False, 
+                        **cfg.model.lmql
+                        )
     paths_real = get_paths_real_sample(n=cfg.experiment.num_agents, paths_real_file=cfg.paths_real_file)
     agents = []
-    envs = []
     for i,path in enumerate(paths_real):
-        driver = webdriver.Chrome(options=options)
-        nav = WebNavigatorHTML(driver, pages=[path['src']], downloads_folder="")
-        env = WebWikiEnvironment(nav=nav, current_page=path['src'])
-        # nav = WebNavigatorHTML(driver, pages=[cfg.experiment.src], downloads_folder="")
-        # env = WebWikiEnvironment(nav=nav, current_page=cfg.experiment.src)
+        # driver = webdriver.Chrome(options=options)
+        # nav = WebNavigatorHTML(driver, pages=[path['src']], downloads_folder="")
+        # env = WebWikiEnvironment(nav=nav, current_page=path['src'])
+        env_kwargs = {"current_page": path["src"], 
+                      "links_file": cfg.links_file}
         agent = instantiate(cfg.agent)
-        agent.set_environment(env)
-        if not 'lmql' in str(cfg.agent._target_).lower():
-            agent.set_handler(handler)
-        else:
-            agent.model_cfg=cfg.model
-            agent.model=model
-            agent.set_tokenizer()
+        agent.initialize_environment(**env_kwargs)
+        agent.model_cfg=cfg.model
+        agent.model=model
+        agent.agent_id = i
+        agent.set_tokenizer()
         agent.set_target_page(path["tgt"])
-        # agent.set_target_page(cfg.experiment.tgt)
-        agent.set_agent_id(i)
         agents.append(agent)
-        envs.append(env)
 
     agent_tasks = [asyncio.create_task(agent.run()) for agent in agents]
-    if not 'lmql' in str(cfg.agent._target_).lower():
-        batch_processor = asyncio.create_task(handler.process_batch())
 
     try:
-        if not 'lmql' in str(cfg.agent._target_).lower():
-            results = await asyncio.gather(*agent_tasks, batch_processor, return_exceptions=False)
-            batch_processor.cancel()
-        else:
-            results = await asyncio.gather(*agent_tasks, return_exceptions=False)
+        results = await asyncio.gather(*agent_tasks, return_exceptions=False)
         # cancel all tasks
         for task in agent_tasks:
             task.cancel()
         print(f"Run finished with {results.count(True)} successes and {results.count(False)} failures.")
     except Exception as e:
         raise e
- 
+    torch.cuda.empty_cache()
     print(f"Total time taken: {time() - start:.1f} seconds")
     print(f"Average time per action: {(time() - start) / sum([agent.num_actions for agent in agents]):.2f}s for {sum([agent.num_actions for agent in agents])} actions")
+
+
 
 def hydra_wrapper_noasync(func):
     @hydra.main(version_base = None, config_path="configs", config_name="config")
@@ -310,5 +290,5 @@ def chat_template():
     print(tokenizer.apply_chat_template(chat, tokenize=False))
 
 if __name__ == "__main__":
-    hydra_wrapper(lmql_test)
+    hydra_wrapper(test_run)
     # chat_template()

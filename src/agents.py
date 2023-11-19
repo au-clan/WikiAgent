@@ -459,7 +459,8 @@ if next_action=='click':
         options.add_argument('--disable-gpu')  # Necessary for running in headless mode on some systems
         options.add_argument('--no-sandbox')
         driver = webdriver.Chrome(options=options)
-        nav = WebNavigatorHTML(driver, pages=[kwargs['current_page']], downloads_folder="")
+        #reading directly from the wpcd folder and there names are url encoded 1 time
+        nav = WebNavigatorHTML(driver, pages=[quote(kwargs['current_page'])], downloads_folder="")
         env = WebWikiEnvironment(nav=nav, **kwargs)
         self.environment = env
         self.source_page = self.environment.current_page
