@@ -372,3 +372,20 @@ def getWikiNavFolder():
     root = current_dir.split("/WikiNav/")[0]
     wikinavFolder = os.path.join(root, "WikiNav")
     return wikinavFolder
+
+def getHeadings(page_source):
+    """
+    Returns in a list the text of all headings in an html page.
+    """
+    soup = BeautifulSoup(page_source, 'html.parser')
+    headings = soup.find_all(re.compile('^h[1-6]$'))
+    headings = [h.text.strip() for h in headings]
+    return headings
+
+def getTextHTML(html_source):
+    """
+    Given the source code of an html document it returns just the text encoded in it.
+    """
+    soup = BeautifulSoup(html_source, 'html.parser')
+    text = soup.text.strip()
+    return text
