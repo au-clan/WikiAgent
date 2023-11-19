@@ -2,6 +2,7 @@ import tiktoken, os, html2text
 from bs4 import BeautifulSoup
 import pandas as pd
 import urllib.parse
+from utils import printc
 
 from selenium.webdriver.common.by import By
 
@@ -119,8 +120,6 @@ class WebNavigatorHTML:
                 emptyFolder(self.activePagesPath) 
 
         self.initTabs(agents, pages)
-
-        
         
         file_name = "active_elements.json" # Name of the file downloaded - Defined already by JS
         self.file_path = os.path.join(downloads_folder, file_name)
@@ -214,6 +213,9 @@ class WebNavigatorHTML:
         """
         Clicks on the "get" button to download the active elements.
         """
+        #print current page html
+        printc(self.driver.current_url)
+        printc(self.driver.page_source)
         get_button = self.driver.find_element(By.ID, "get")
         get_button.click()
 

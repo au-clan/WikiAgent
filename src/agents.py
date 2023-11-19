@@ -460,7 +460,7 @@ if next_action=='click':
         options.add_argument('--no-sandbox')
         driver = webdriver.Chrome(options=options)
         #reading directly from the wpcd folder and there names are url encoded 1 time
-        nav = WebNavigatorHTML(driver, pages=[quote(kwargs['current_page'])], downloads_folder="")
+        nav = WebNavigatorHTML(driver, pages=[quote(quote(kwargs['current_page']))], downloads_folder="")
         env = WebWikiEnvironment(nav=nav, **kwargs)
         self.environment = env
         self.source_page = self.environment.current_page

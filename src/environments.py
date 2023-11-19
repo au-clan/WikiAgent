@@ -17,7 +17,7 @@ class Environment:
     """
     Virtual environment class. Defines the main interface for the environment.
     """
-    current_page: str = field(default=None)
+    current_page = field(factory=str)
     content = field(default=None)
     page_history = field(factory=list) #this is basically the effective history
     full_page_history = field(factory=list) #this includes backtracks
@@ -56,7 +56,7 @@ class WikiEnvironment(Environment):
     """
 
     def __attrs_post_init__(self):
-        self._set_current_page(self.current_page)
+        self.current_page = wikify_article_name(self.current_page)
         self.page_history.append(self.current_page)
         self.full_page_history.append(self.current_page)
         self._set_content()
@@ -121,29 +121,21 @@ class WebWikiEnvironment(WikiEnvironment):
     nav = field(factory=WebNavigatorHTML)
     position = field(factory=tuple)
     html = field(default=False)
-    headings = field(factory=list)
 
     def __attrs_post_init__(self):
-        super().__attrs_post_init__()
         self._set_position()
+        super().__attrs_post_init__()
 
     def _set_current_page(self, new_page: str):
         new_page_wikified= wikify_article_name(new_page)
-        printc(f"Current page is {self.current_page}.", c="y")
-        new_page_wikified = quote(quote(new_page_wikified))
-        self.nav.movePage(new_page_wikified)
+        self.nav.movePage(quote(quote(new_page_wikified)))
         self.current_page = new_page_wikified
-        self._set_headings()
-        printc(f"Headings are {self.headings}.", c="y")
     
     def _set_position(self):
         self.position = self.nav.getScrollPosition()
 
     def _set_links(self):
         self.links = [unquote(unquote(link)) for link in self.nav.getLinks()]
-    
-    def _set_headings(self):
-        self.headings = self.nav.getHeadings()
     
     def _set_content(self):
         if self.html:
@@ -162,16 +154,14 @@ class WebWikiEnvironment(WikiEnvironment):
 
     def move(self, direction: str):
         """
-        Moves the window down, up or to a specific heading.
+        Moves the window down or up.
         """
         if direction.strip().lower() == "down":
             self.nav.moveDown()
         elif direction.strip().lower() == "up":
             self.nav.moveUp()
-        elif direction in self.headings:
-            self.nav.moveHeading(direction)
         else:
-            raise Exception("Invalid direction. Choose either 'up' or 'down' or specific heading.")
+            raise Exception("Invalid direction. Choose either 'up' or 'down'.")
         self._set_content()
         self._set_links()
         self._set_position()
@@ -190,7 +180,6 @@ class WebWikiEnvironment(WikiEnvironment):
             self._set_content()
             self._set_links()
             self._set_position()
-            self._set_headings()
         else:
             raise Exception("Cannot go back any further. Choose a different action.")
     
@@ -202,5 +191,4 @@ class WebWikiEnvironment(WikiEnvironment):
         self._set_content()
         self._set_links()
         self._set_position()
-        self._set_headings()
         # self.current_page : Not sure yet how to handle this.
