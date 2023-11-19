@@ -100,7 +100,7 @@ class WebNavigatorHTML:
     Second implementation of the HTML Navigator.
     Opens the page in a browser and moves by interacting with the page.
     """
-    def __init__(self, driver, pages, downloads_folder, agents=None, markdown=False, emptyActivePages=True, onFly = True):
+    def __init__(self, driver, pages, downloads_folder, agents=None, markdown=True, emptyActivePages=True, onFly = False):
         self.driver = driver
         self.onFly = onFly
         self.agentTabs = {}

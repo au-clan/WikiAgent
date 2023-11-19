@@ -5,68 +5,8 @@ from model_utils import BaseMessage, printc_prompt, prepare_chat
 from utils import printc, filter_links_from_text
 from time import time
 import lmql
-from agents import LinkClickDFSAgent, Agent, BaseWikiAgent
+from agents import LinkClickDFSAgent, Agent, BaseWikiAgent, LinkClickAgent
 from transformers import AutoTokenizer
-
-@define 
-class LMQLLinkClickDFSAgent(LinkClickDFSAgent):
-    model= field(default=None)
-    model_cfg: dict = field(default=None)
-    tokenizer = field(default=None)
-
-    def set_tokenizer(self):
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_cfg['model_name'])
-        return super().__attrs_post_init__()
-
-    @lmql.query
-    async def lmql_query(self, prompt: str, candidates: List[str]):
-        #
-        '''lmql
-        sample(n=1, temperature=self.model_cfg['temperature'], top_p=self.model_cfg['top_p'], max_len=4096)
-            "{prompt}"
-            """{{"next_page": "[next_page]"}}""" where next_page in set(candidates)
-        '''
-
-    def extract_actions(self, response: dict) -> dict:
-        """ Processes the model output and returns a dict with the agent's choices."""
-        return response['next_page']
-    
-    async def act(self, feedback: str = None):
-        """ One turn of the agent. -Build prompt; Send prompt to model; Apply actions
-        args:
-            feedback: str = None
-                Feedback from the user. If not None, it means the agent made a mistake and needs to be corrected.
-        """
-        printc(f"Agent {self.agent_id} on page {self.environment.current_page}, num_actions={self.num_actions}, num_errors={self.num_errors}.", c="r")
-        prompt = self.build_prompt(feedback)
-
-        if self.model_cfg['model_type'] == 'chat':
-            prepared_prompt = prepare_chat(self.tokenizer,prompt)
-        else:
-            prepared_prompt = prompt
-        links = self.environment.links
-        if self.use_back and self.environment.current_page != self.source_page:
-            links.append("NA")
-
-        printc(f"Agent {self.agent_id} says: {prompt[-1].content}")
-        # printc_prompt(self.prompt, c='p')
-    
-        self.user_prompt_history.append(prompt[-1].content)
-        start = time()
-        if not self.debug:
-            response = await self.lmql_query(prepared_prompt, candidates=links, model=self.model)
-        else:
-            input_ = input("Response from model:")
-            response = input_
-        ### TODO: fix this for non llama
-        # self.raw_response_history.append(response.prompt.split("[/INST]")[-1])
-        printc(f"Number of tokens in prompt:{len(self.tokenizer(response.prompt)['input_ids'])}",c='y')
-
-        printc(f"Agent {self.agent_id} received response. Time in queue: {time() - start} seconds. Response:\n{response.variables}")
-        self.response_history.append(response.variables)
-        actions = response.variables
-        self.apply_actions(actions)
-        self.action_history.append(actions)
 
 @define
 class WikiTextAgent(BaseWikiAgent):
@@ -77,14 +17,13 @@ class WikiTextAgent(BaseWikiAgent):
 
     def set_tokenizer(self):
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_cfg['model_name'])
-        return super().__attrs_post_init__()
 
     @lmql.query
     async def lmql_query(self, prompt: str):
         '''lmql
         sample(n=1, temperature=self.model_cfg['temperature'], top_p=self.model_cfg['top_p'], max_len=4096)
         "{prompt}"
-        "Thought:\nLet's think step by step. The [thought]\n" where stops_before(thought, '\n')
+        "Thought:\n[thought]" where stops_before(thought, 'Action:')
         "Action:\n[next_action]" where next_action in set(self.action_list)
         if next_action=='click':
             "([link])" where link in set(self.environment.links)
@@ -132,14 +71,10 @@ class WikiTextAgent(BaseWikiAgent):
             prepared_prompt = prepare_chat(self.tokenizer,prompt)
         else:
             prepared_prompt = prompt
-
         links = self.environment.links
-        if self.use_back and self.environment.current_page != self.source_page:
-            links.append("NA")
-
         ###printc(f"Agent {self.agent_id} says: {prompt[-1].content}")
         printc(prepared_prompt, c='p')
-    
+
         self.user_prompt_history.append(prompt[-1].content)
         start = time()
         if not self.debug:
@@ -149,8 +84,7 @@ class WikiTextAgent(BaseWikiAgent):
             response = input_
         ### TODO: fix this for non llama
         self.raw_response_history.append(response.prompt.split("[/INST]")[-1])
-        printc(f"response.variables: {response.variables}", c='y')
-        printc(f"Agent {self.agent_id} received response. Time in queue: {time() - start} seconds. Response:\n{response.prompt.split('[/INST]')[-1]}")
+        printc(f"Agent {self.agent_id} received response. Time in queue: {time() - start} seconds. Response:\n{response.variables}")
         self.response_history.append(response.variables)
         actions = response.variables
         self.apply_actions(actions)

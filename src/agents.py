@@ -7,15 +7,18 @@ from attr import define, field
 import os
 import yaml
 import asyncio
-from model_utils import SystemMessage, HumanMessage, AIMessage, AIMessagePrefix, BaseMessage, AIMessageCompletion, printc_prompt
+from model_utils import SystemMessage, HumanMessage, AIMessage, AIMessagePrefix, BaseMessage, AIMessageCompletion, printc_prompt, prepare_chat
+from transformers import AutoTokenizer
 from models.huggingface_model import preprocess_llama_chat
-from environments import Environment
+from environments import *
 from batch_handler import BatchHandler
-from utils import load_tsv_to_dict_list, printc, extract_json_from_response, wikify_article_name
+from utils import filter_links_from_text, printc, wikify_article_name
 from time import time
 import pandas as pd
 import json
-from typing import List
+from typing import Any, Coroutine, List
+import lmql
+from selenium import webdriver
 
 @define
 class Agent:
@@ -23,10 +26,9 @@ class Agent:
     Virtual agent class. Defines the main interface for the agent.
     """
     environment: Environment = field(default=None)
-    handler: BatchHandler = field(default=None)
-    agent_id: int = field(default=None)
+    agent_name: str = field(default=None)
     source_page: str = field(default=None)
-
+    agent_id: int = field(default=0)
     debug: bool = field(default=False)
 
     #features that are common to all agents
@@ -49,6 +51,7 @@ class Agent:
     fewshot: int = field(default=5)
     demonstrations_file: str = field(default=None)
     prompt: List[BaseMessage] = field(factory=list)
+    prepared_prompt: str = field(factory=str)
 
     # data about a run
     num_actions: int = field(default=0)
@@ -60,6 +63,12 @@ class Agent:
     raw_response_history = field(factory=list) # without assistant prefix
     action_history = field(factory=list)
     agent_runs_file: str = field(default=None) #should be hydra
+
+    # for LMQL
+    model: lmql.model = field(default=None)
+    model_cfg: dict = field(default=None)
+    tokenizer: AutoTokenizer = field(default=None)
+    lmql_query_str: str = field(default=None)
 
 
     def __attrs_post_init__(self):
@@ -78,15 +87,14 @@ class Agent:
             field = yaml.safe_load(f)[field]
         return field
 
-    def set_environment(self, environment: Environment):
-        self.environment = environment
-        self.source_page = environment.current_page
+    def initialize_environment(self, **kwargs):
+        """
+        Initializes the environment specific to the agent type.
+        """
+        raise NotImplementedError("Subclasses must implement the initialize_environment method.")
     
-    def set_handler(self, handler: BatchHandler):
-        self.handler = handler
-    
-    def set_agent_id(self, agent_id: int):
-        self.agent_id = agent_id
+    def set_tokenizer(self):
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_cfg['model_name'])
         
     def get_fewshot_demonstrations(self) -> List[str]:
         demos_list = self._load_fewshot_demonstrations_data()
@@ -126,7 +134,7 @@ class Agent:
             if self.multiturn_demonstrations:
                 replace_dict['agent_description'] = self.agent_description.format(replace=replace_dict)
                 system_message_content = self.prompt_template['system'].format(replace=replace_dict)                
-                prompt = [SystemMessage(system_message_content)]
+                self.prompt = [SystemMessage(system_message_content)]
                 user_message_content += self.user_initial_prefix.format(replace=replace_dict)
                 ai_message_content = ""
 
@@ -136,8 +144,8 @@ class Agent:
                     for demo in demos_list:
                         user_message_content += self.user_template.format(replace = demo)
                         ai_message_content = self.demonstration_template.format(replace = demo)
-                        prompt.append(HumanMessage(user_message_content))
-                        prompt.append(AIMessage(ai_message_content))
+                        self.prompt.append(HumanMessage(user_message_content))
+                        self.prompt.append(AIMessage(ai_message_content))
                         user_message_content = ""
                         ai_message_content = ""
                     
@@ -147,38 +155,23 @@ class Agent:
                 system_message_content = self.prompt_template['system'].format(replace=replace_dict)
                 user_message_content += self.user_initial_prefix.format(replace=replace_dict)
                 system_message = SystemMessage(system_message_content)
-                prompt = [system_message]
+                self.prompt = [system_message]
 
             env_data = self.observe_environment()
 
             # current user prompt
             user_message_content += self.user_template.format(replace = env_data)
             user_message = HumanMessage(content = user_message_content)
-            ### TODO: make this work with LMQL
-            # assistant_prefix = AIMessagePrefix(self.assistant_prefix)
-
-            prompt.append(user_message)
-            # prompt.append(assistant_prefix)
-            self.prompt = prompt
+            self.prompt.append(user_message)
         else: #got feedback
             # append bad response and feedback to the prompt
-            ### TODO: make this work with LMQL
-            # self.prompt.append(AIMessageCompletion(self.raw_response_history[-1]))
             self.prompt.append(AIMessage(self.raw_response_history[-1]))
             self.prompt.append(HumanMessage(feedback))
-            # self.prompt.append(AIMessagePrefix(self.assistant_prefix))
-            prompt = self.prompt    
-        return prompt
     
         
-    def extract_actions(self, response: BaseMessage) -> dict:
+    def extract_actions_from_lmql_variables(self, variables: dict) -> dict:
         """ Processes the model output and returns a dict with the agent's choices."""
-        extracted_json = extract_json_from_response(self.assistant_prefix + response.content)
-        if extracted_json:
-            actions = json.loads(extracted_json)
-        else:
-            raise Exception(f"Invalid output format. Please follow the correct format.")
-        return actions
+        raise NotImplementedError("Subclasses must implement the extract_actions method.")
     
     def apply_actions(self, actions: dict):
         """ Applies the actions to the environment."""
@@ -188,6 +181,25 @@ class Agent:
         """ Depends on the agent type."""
         pass
 
+    def get_lmql_query(self):
+        prompt = self.prepared_prompt
+        # substitute [ and ] with [[ and ]] to avoid lmql formatting
+        prompt = re.sub(r'(?<!\[)\[(?!\[)', '[[', prompt)
+        prompt = re.sub(r'(?<!\])\](?!\])', ']]', prompt)
+        
+        formatted_query = self.lmql_query_str.format(prompt=prompt, model_cfg=self.model_cfg)
+        # because lmql formats the query again, we have to turn single occurrences of { into {{ and } into }}
+        formatted_query = re.sub(r'(?<!\{)\{(?!\{)', '{{', formatted_query)
+        formatted_query = re.sub(r'(?<!\})\}(?!\})', '}}', formatted_query)
+        
+        return lmql.query(formatted_query)
+    
+    async def send_query_lmql(self, query, **kwargs) -> lmql.LMQLResult:
+        """Receives the prepared prompt along with other info to fill in prompt and sends it to the model.
+        Outputs the response."""
+        raise NotImplementedError("Subclasses must implement the query_lmql method.")
+        
+
     async def act(self, feedback: str = None):
         """ One turn of the agent. -Build prompt; Send prompt to model; Apply actions
         args:
@@ -195,24 +207,30 @@ class Agent:
                 Feedback from the user. If not None, it means the agent made a mistake and needs to be corrected.
         """
         printc(f"Agent {self.agent_id} on page {self.environment.current_page}, num_actions={self.num_actions}, num_errors={self.num_errors}.", c="r")
-        prompt = self.build_prompt(feedback)
+        
+        # Prepare prompt
+        self.build_prompt(feedback)
+        prepared_prompt = prepare_chat(self.tokenizer,self.prompt)
+        self.prepared_prompt = prepared_prompt
+        printc(f"Agent {self.agent_id} says: {self.prompt[-1].content}")
+        self.user_prompt_history.append(self.prompt[-1].content)
 
-        printc(f"Agent {self.agent_id} says: {prompt[-2].content}")
-        printc_prompt(self.prompt, c='p')
-    
-        self.user_prompt_history.append(prompt[-2].content)
+        # Send prompt to model
+        query = self.get_lmql_query()
         start = time()
         if not self.debug:
-            response = await self.handler.send_prompt(self.agent_id, prompt)
+            response = await self.send_query_lmql(query)
         else:
             input_ = input("Response from model:")
             response = AIMessage(input_)
-        self.raw_response_history.append(response.content)
-        response.content = self.assistant_prefix + response.content
-
-        printc(f"Agent {self.agent_id} received response. Time in queue: {time() - start} seconds. Response:\n{response}")
-        self.response_history.append(response.content)
-        actions = self.extract_actions(response)
+        # get only the new text added by the model in response.prompt
+        self.prompt.append(AIMessage(response.prompt.split(prepared_prompt)[-1]))
+        self.raw_response_history.append(response.prompt.split(prepared_prompt)[-1])
+        printc(f"Agent {self.agent_id} received response. Time in queue: {time() - start} seconds. Response:\n{response.prompt}")
+        self.response_history.append(response.variables)
+        printc(f"Variables: {response.variables}", c="y")
+        # Apply actions
+        actions = self.extract_actions_from_lmql_variables(response.variables)
         self.apply_actions(actions)
         self.action_history.append(actions)
 
@@ -223,8 +241,6 @@ class Agent:
     async def run(self):
         """Agent type dependent."""
         raise NotImplementedError("Subclasses must implement the run method.")
-        
-
 
 @define
 class BaseWikiAgent(Agent):
@@ -254,7 +270,7 @@ class BaseWikiAgent(Agent):
     
     def update_runs_df(self):
         row = {
-            'agent_id': self.agent_id,
+            'agent_name': self.agent_name,
             'agent_type': self.__class__.__name__,
             'cur': self.environment.current_page,
             'src': self.source_page,
@@ -336,6 +352,13 @@ class LinkClickAgent(BaseWikiAgent):
     fewshot_click_types: str = field(default='all_no_back')
     sample_random_demos: bool = field(default=False)
 
+    default_lmql_query_str = '''lmql
+sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len={model_cfg[max_len]})
+"""{prompt}"""
+"""{{"next_page": "[next_page]"}}""" where stops_before(next_page, '"')
+'''
+    lmql_query_str: str = field(default=default_lmql_query_str)
+
     def _load_fewshot_demonstrations_data(self) -> List[dict]:
         demos_df = pd.read_csv(self.demonstrations_file, sep='\t').fillna('NA')
         # remove src column
@@ -358,7 +381,11 @@ class LinkClickAgent(BaseWikiAgent):
             return [dicts[self.demonstration_index]]
         else:
             return dicts[:self.fewshot]
-
+        
+    def initialize_environment(self, **kwargs):
+        self.environment = LinkWikiEnviroment(**kwargs)
+        self.source_page = self.environment.current_page
+    
     def observe_environment(self):
         observed_data = {
             "src": self.environment.current_page,
@@ -366,32 +393,25 @@ class LinkClickAgent(BaseWikiAgent):
             "links": ";".join([link for link in self.environment.links]),
         }
         return observed_data
-
-    def click(self, link: str):
-        """
-        Clicks on a link.
-        """
-        try:
-            self.environment.change_page(link)
-            return True
-        except Exception as e:
-            raise e
-        
+    
+    async def send_query_lmql(self, query):
+        candidates = self.environment.links
+        return await query(candidates=candidates, model=self.model)
+    
+    def extract_actions_from_lmql_variables(self, variables: dict) -> dict:
+        """ Processes the model output and returns a dict with the agent's choices."""
+        actions = {}
+        if 'next_page' in variables:
+            actions['next_page'] = variables['next_page']
+        else:
+            raise AssertionError(f"Invalid action: {variables}")
+        return actions
 
     def apply_actions(self, actions: dict):
         """
         Apply actions from the model.
         """
-        # if 'click' not in actions:
-
-        if 'next_page' not in actions:
-            raise AssertionError(f"Invalid action: {actions}")
-        else:
-            try:
-                # self.click(actions['click'])
-                self.click(actions['next_page'])
-            except Exception as e:
-                raise e
+        self.environment.change_page(actions['next_page'])
 
 @define
 class LinkClickDFSAgent(LinkClickAgent):
@@ -408,32 +428,76 @@ class LinkClickDFSAgent(LinkClickAgent):
         self.environment.remove_pages_from_links(self.visited_pages)
         return super().observe_environment()
     
-    def back(self):
-        """
-        Backtracks to the previous page.
-        """
-        try:
-            self.environment.back()
-            return True
-        except Exception as e:
-            raise e
-        
     def apply_actions(self, actions: dict):
         """
         Apply actions from the model.
         """
-        if 'next_page' not in actions:
-            raise AssertionError(f"Invalid action: {actions}")
+        if self.use_back and actions['next_page'] == "NA":
+            self.environment.back()
         else:
-            if self.use_back and actions['next_page'] == "NA":
-                try:
-                    self.back()
-                except Exception as e:
-                    raise e
-            else:
-                try:
-                    self.click(actions['next_page'])
-                    self.visited_pages.append(self.environment.current_page)
-                except Exception as e:
-                    raise e
+            self.environment.change_page(actions['next_page'])
+            self.visited_pages.append(self.environment.current_page)
+
+@define
+class WikiTextAgent(BaseWikiAgent):
+    action_list: List[str] = field(default=["scroll_down", "click", "back"])
+    default_lmql_query_str = '''lmql
+sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len={model_cfg[max_len]})
+"""{prompt}"""
+"Action:\n[next_action]" where stops_before(next_action, '(')
+if next_action=='click':
+    "([link])"
+'''
+
+    """Still does DFS, but uses the text of the page to make decisions."""
+    def _load_fewshot_demonstrations_data(self) -> List[dict]:
+        return [{}]
+    
+    def initialize_environment(self, **kwargs):
+        options = webdriver.ChromeOptions()
+        options.add_argument('--headless')
+        options.add_argument('--disable-gpu')  # Necessary for running in headless mode on some systems
+        options.add_argument('--no-sandbox')
+        driver = webdriver.Chrome(options=options)
+        nav = WebNavigatorHTML(driver, pages=[kwargs['current_page']], downloads_folder="")
+        env = WebWikiEnvironment(nav=nav, **kwargs)
+        self.environment = env
+        self.source_page = self.environment.current_page
+
+    def observe_environment(self):
+        ## for DFS
+        self.environment.remove_pages_from_links(self.visited_pages)
+        self.environment.content = filter_links_from_text(self.environment.content, self.environment.links)
+        prev_page = self.environment.page_history[-2] if len(self.environment.page_history) > 1 else "none"
+
+        observed_data = {
+            "prev": prev_page,
+            "src": self.environment.current_page,
+            "tgt": self.target_page,
+            "links": ";".join(self.environment.links),
+            "content": self.environment.content,
+            "remaining_actions": f"{self.max_actions - self.num_actions}/{self.max_actions}",
+            "remaining_scrolls": self.environment.position[1] - self.environment.position[0],
+        }
+        return observed_data
+    
+    async def send_query_lmql(self, query):
+        links = self.environment.links
+        return await query(action_list=self.action_list, links=links, model=self.model)
+        
+    def extract_actions_from_lmql_variables(self, variables: dict) -> dict:
+        """ Processes the model output and returns a dict with the agent's choices."""
+        assert 'next_action' in variables, f"Invalid variables: {variables}"
+        assert variables['next_action'] in self.action_list, f"Invalid action: {variables['next_action']}"
+        return variables
+    
+    def apply_actions(self, actions: dict):
+        if actions['next_action'] == "scroll_down":
+            self.environment.move("down")
+            # we don't count scrolls as actions, and there's +1 num_actions in the agent.run
+            self.num_actions -= 1
+        elif actions['next_action'] == "click":
+            self.environment.change_page(actions['link'])
+        else: # actions['next_action'] == "back":
+            self.environment.back()
 

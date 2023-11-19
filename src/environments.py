@@ -3,7 +3,7 @@ from attr import define, field
 import sys
 from typing import List
 sys.path.append("src/")
-from utils import load_links, wikify_article_name, un_wikify_article_name
+from utils import load_links, wikify_article_name, clean_nav_text, printc
 from navigator import WebNavigatorHTML
 from urllib.parse import quote, unquote
 import re
@@ -23,6 +23,9 @@ class Environment:
     full_page_history = field(factory=list) #this includes backtracks
     content_history = field(factory=list)
     links = field(factory=list)
+
+    # may or may not be used by subclasses
+    links_file = field(default="wikispeedia/wikispeedia_paths-and-graph/links.tsv")
     
     def to_dict(self):
         # Create a dictionary manually
@@ -101,8 +104,6 @@ class LinkWikiEnviroment(WikiEnvironment):
     """
     Each page is only represented by the links it has.
     """
-    links_file = field(default="wikispeedia/wikispeedia_paths-and-graph/links.tsv")
-
     def _set_links(self):
         """
         This depends on the type of environment
@@ -146,7 +147,7 @@ class WebWikiEnvironment(WikiEnvironment):
             # self.content = self.nav.getHTML()
         else:
             ### dirty fix for invalid links
-            self.content = self.nav.getText()
+            self.content = clean_nav_text(self.nav.getText())
             # pattern = r"\[\*(index|subject\.[^\]]*)\*\]"
             # self.content = unquote(self.nav.getText())
             # self.content = re.sub(pattern, "", self.content)

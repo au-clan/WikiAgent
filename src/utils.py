@@ -347,6 +347,12 @@ def filter_links_from_text(text, valid_links):
     reformatted_text = re.sub(pattern, replace_func, text)
     return reformatted_text
 
+def clean_nav_text(text:str):
+    #remove empty lines
+    text = re.sub(r'\n\s*\n', '\n', text)
+
+    return text
+
 def emptyFolder(path):
     """
     Given a directory path, it empties it. 

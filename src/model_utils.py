@@ -310,8 +310,16 @@ def prepare_chat(tokenizer, chat: List[BaseMessage]) -> str:
     """
     This method prepares the chat for generation.
     """
-    # if there's no 'system' role in chat_template, append system message to first user message
-    if not "'system'" in tokenizer.chat_template:
+    if not tokenizer.chat_template:
+        tokenizer.chat_template = tokenizer.default_chat_template
+        
+    # if there's no 'system' role in chat_template
+    try:
+        output = tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True)
+    except AssertionError:
+        # this probably means that there's no 'system' role in chat_template
+        # append system message to first user message
         first_user_message = chat[0].content + "\n" + chat[1].content
         chat = [HumanMessage(first_user_message)] + chat[2:]
-    return tokenizer.apply_chat_template(chat, tokenize=False)
+        output = tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True)
+    return output

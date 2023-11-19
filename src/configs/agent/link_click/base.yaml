@@ -1,4 +1,5 @@
 _target_: agents.LinkClickAgent
+agent_name: link_click/base
 fewshot: 5
 use_retry: True
 max_tries: 3

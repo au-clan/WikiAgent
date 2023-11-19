@@ -1,4 +1,5 @@
-_target_: lmql_agents.WikiTextAgent
+_target_: agents.WikiTextAgent
+agent_name: navigate/lmql_html
 fewshot: 0
 use_retry: True
 max_tries: 3

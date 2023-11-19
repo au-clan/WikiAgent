@@ -1,4 +1,5 @@
 _target_: agents.LinkClickDFSAgent
+agent_name: link_click/dfs
 fewshot: 5
 use_retry: True
 max_tries: 3

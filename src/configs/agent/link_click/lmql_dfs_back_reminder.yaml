@@ -1,4 +1,5 @@
-_target_: lmql_agents.LMQLLinkClickDFSAgent
+_target_: agents.LinkClickDFSAgent
+agent_name: link_click/lmql_dfs_back_reminder
 fewshot: 5
 use_retry: True
 max_tries: 3
@@ -26,17 +27,21 @@ instructions: |
   {"next_page": "<chosen page for user to click on>"}
   Ensure the response can be parsed by Python json.loads
 
-user_initial_prefix: ""
-
 user_template: |-
   {{"source": "{replace[src]}", "target": "{replace[tgt]}", "links": "{replace[links]}"}}
   Remember that you are currently on the page {replace[src]} and you are trying to reach the page {replace[tgt]}, in the least number of clicks possible. Choose the page that will take you closer to the target. If no available link takes you closer to the target, select "NA" as the next page.
   
-assistant_prefix: "" # no prefix because this is done in the lmql query function
-
 demonstration_template: |-
   {{"next_page": "{replace[click]}"}}
 
+lmql_query_str: |-
+  lmql
+  sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len={model_cfg[max_len]})
+  """{prompt}"""
+  """{{"next_page": "[next_page]"}}""" where next_page in set(candidates)
+
+assistant_prefix: "" # no prefix because this is done in the lmql query function
+user_initial_prefix: ""
 
 demonstrations_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/fewshot_click_demonstrations.tsv
 agent_runs_file: ${agent_runs_file}

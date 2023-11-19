@@ -7,16 +7,23 @@
 source ~/.conda/etc/profile.d/conda.sh #|| { echo "Failed to source conda" > test.log; exit 1; }
 conda activate ../miniconda3/envs/wikinav #|| { echo "Failed to activate conda environment" > test.log; exit 1; }
 
-MODELS=("dolphin_2.2.1_mistral_7b")
-for model in "${MODELS[@]}"; do
-    python src/run.py \
-        --multirun model.device=cuda model.dtype=bfloat16 model.batch_size=2 \
-        model="${model}" \
-        agent=link_click/lmql_dfs_back_reminder \
-        agent.fewshot=4\
-        run_name="${model}_fewshot" \
-        > "${model}_fewshot.log" 2>&1
-done
+# MODELS=("dolphin_2.2.1_mistral_7b")
+# for model in "${MODELS[@]}"; do
+#     python src/run.py \
+#         --multirun model.device=cuda model.dtype=bfloat16 model.batch_size=2 \
+#         model="${model}" \
+#         agent=link_click/lmql_dfs_back_reminder \
+#         agent.fewshot=4\
+#         run_name="${model}_fewshot" \
+#         > "${model}_fewshot.log" 2>&1
+# done
+
+python src/run.py \
+    --multirun model.device=cuda model.batch_size=2 \
+    model=mistral_7b_openorca model.dtype=bfloat16 \
+    agent=navigate/lmql \
+    run_name=text_nav_test \
+    > text_nav_test.log 2>&1
 
 # python src/run.py \
 #     --multirun model.device=cuda model.half_precision=True model.batch_size=2 \
@@ -27,12 +34,5 @@ done
 #     > mistral_finetunes_fewshot.log 2>&1
 
 #same script but a for loop that runs the same src/run.py for each model
-
-
-# python src/run.py \
-#     --multirun model.device=cuda model.half_precision=True model.batch_size=1 model=llama_2_7b_chat_hf\
-#     agent=prompt_variations/description_system_fewshot_multiturn,prompt_variations/description_system_fewshot_system,prompt_variations/description_user_fewshot_multiturn,prompt_variations/description_user_fewshot_user \
-#     run_name=prompt_variations_runai \
-#     > prompt_variations_runai.log 2>&1
 
 
