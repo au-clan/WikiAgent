@@ -165,7 +165,6 @@ class Agent:
             self.prompt.append(user_message)
         else: #got feedback
             # append bad response and feedback to the prompt
-            self.prompt.append(AIMessage(self.raw_response_history[-1]))
             self.prompt.append(HumanMessage(feedback))
     
         
@@ -212,7 +211,9 @@ class Agent:
         self.build_prompt(feedback)
         prepared_prompt = prepare_chat(self.tokenizer,self.prompt)
         self.prepared_prompt = prepared_prompt
-        printc(f"Agent {self.agent_id} says: {self.prompt[-1].content}")
+        printc(f"Prepared prompt: {prepared_prompt}", c="y")
+        printc(f"Prepared prompt number of tokens: {len(self.tokenizer(prepared_prompt)['input_ids'])}", c="p")
+        #printc(f"Agent {self.agent_id} says: {self.prompt[-1].content}")
         self.user_prompt_history.append(self.prompt[-1].content)
 
         # Send prompt to model
@@ -223,10 +224,12 @@ class Agent:
         else:
             input_ = input("Response from model:")
             response = AIMessage(input_)
-        # get only the new text added by the model in response.prompt
-        self.prompt.append(AIMessage(response.prompt.split(prepared_prompt)[-1]))
-        self.raw_response_history.append(response.prompt.split(prepared_prompt)[-1])
-        printc(f"Agent {self.agent_id} received response. Time in queue: {time() - start} seconds. Response:\n{response.prompt}")
+        # response.prompt has input and output, i want the output text only (aka removing the prepared prompt)
+        ### TODO: fix this, its eating the first character
+        printc(f"Response from model: {response.prompt}", c="p")
+        self.prompt.append(AIMessage(response.prompt[len(prepared_prompt):]))
+        self.raw_response_history.append(response.prompt[len(prepared_prompt):])
+        printc(f"Agent {self.agent_id} received response. Time in queue: {time() - start} seconds. Response:\n{self.raw_response_history[-1]}")
         self.response_history.append(response.variables)
         printc(f"Variables: {response.variables}", c="y")
         # Apply actions
@@ -387,16 +390,22 @@ sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_
         self.source_page = self.environment.current_page
     
     def observe_environment(self):
+        prev_page = self.environment.page_history[-2] if len(self.environment.page_history) > 1 else "none"
+        links = self.environment.links
+        if self.use_back:
+            links.append("NA")
+
         observed_data = {
+            "prev": prev_page,
             "src": self.environment.current_page,
             "tgt": self.target_page,
-            "links": ";".join([link for link in self.environment.links]),
+            "links": ";".join([link for link in links]),
         }
         return observed_data
     
     async def send_query_lmql(self, query):
-        candidates = self.environment.links
-        return await query(candidates=candidates, model=self.model)
+        links = self.environment.links
+        return await query(candidates=links, model=self.model)
     
     def extract_actions_from_lmql_variables(self, variables: dict) -> dict:
         """ Processes the model output and returns a dict with the agent's choices."""
@@ -448,6 +457,7 @@ sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_
 if next_action=='click':
     "([link])"
 '''
+    links_seen_on_current_page: List[str] = field(factory=list)
 
     """Still does DFS, but uses the text of the page to make decisions."""
     def _load_fewshot_demonstrations_data(self) -> List[dict]:
@@ -470,12 +480,17 @@ if next_action=='click':
         self.environment.remove_pages_from_links(self.visited_pages)
         self.environment.content = filter_links_from_text(self.environment.content, self.environment.links)
         prev_page = self.environment.page_history[-2] if len(self.environment.page_history) > 1 else "none"
+        links = self.environment.links
+        self.links_seen_on_current_page.extend(links)
+        # remove duplicates
+        self.links_seen_on_current_page = list(set(self.links_seen_on_current_page))
 
         observed_data = {
             "prev": prev_page,
             "src": self.environment.current_page,
             "tgt": self.target_page,
             "links": ";".join(self.environment.links),
+            "links_seen_on_current_page": ";".join(self.links_seen_on_current_page),
             "content": self.environment.content,
             "remaining_actions": f"{self.max_actions - self.num_actions}/{self.max_actions}",
             "remaining_scrolls": self.environment.position[1] - self.environment.position[0],
@@ -483,7 +498,7 @@ if next_action=='click':
         return observed_data
     
     async def send_query_lmql(self, query):
-        links = self.environment.links
+        links = self.links_seen_on_current_page
         return await query(action_list=self.action_list, links=links, model=self.model)
         
     def extract_actions_from_lmql_variables(self, variables: dict) -> dict:
@@ -498,7 +513,8 @@ if next_action=='click':
             # we don't count scrolls as actions, and there's +1 num_actions in the agent.run
             self.num_actions -= 1
         elif actions['next_action'] == "click":
-            self.environment.change_page(actions['link'])
+            self.environment.change_page(actions['link'], links_seen_on_current_page=self.links_seen_on_current_page)
+            self.links_seen_on_current_page = []
         else: # actions['next_action'] == "back":
             self.environment.back()
 

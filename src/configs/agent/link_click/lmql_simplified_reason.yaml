@@ -1,0 +1,48 @@
+_target_: agents.LinkClickDFSAgent
+agent_name: link_click/lmql_simplified_reason
+fewshot: 1
+use_retry: True
+max_tries: 3
+max_actions: 50
+use_back: True
+use_feedback: True
+
+multiturn_demonstrations: True
+
+agent_description: |-
+  You are a helpful assistant that helps the User complete tasks.
+
+instructions: |
+  I'm playing a game with the objective of getting from a source Wikipedia article to a target article in the least amount of clicks.
+  I can only click on links to articles in the current article, or go back to the previous page by choosing the next article as "NA".
+  Always respond to me in the format:
+  Thought:
+  [Your thought process in one line. Example: "We want to get closer to the target page Einstein from the source page Science. Einstein was a famous physicist, and Physics is a subset of Science. There is a link to Physics on this article, so we should click on it."]
+  Next article:
+  [The article I should click on. Example: "Physics"]
+
+user_template: |-
+  I'm on the Wikipedia page for {replace[src]} and I want to get to the page for {replace[tgt]} in the least amount of clicks. The articles that I can click on now are: {replace[links]}.
+  I can either: click on a link that will get me closer to the target, or go back to the previous page: {replace[prev]}. First tell me your thought process and then tell me what to do. Respond with "[article name]", or "NA" to go back.
+  
+user_initial_prefix: |
+  {replace[instructions]}{replace[feedback_prefix]}
+
+demonstration_template: |-
+  Thought:
+  {replace[reason]}
+  Next article:
+  {replace[click]}
+
+lmql_query_str: |-
+  lmql
+  sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len={model_cfg[max_len]})
+  """{prompt}"""
+  """Thought:\n[thought]""" where stops_before(thought, 'Next article:')
+  """Next article:\n[next_page]""" where next_page in set(candidates)
+
+assistant_prefix: "" # no prefix because this is done in the lmql query function
+
+demonstrations_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/fewshot_click_demonstrations.tsv
+agent_runs_file: ${agent_runs_file}
+

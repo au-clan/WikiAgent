@@ -213,9 +213,6 @@ class WebNavigatorHTML:
         """
         Clicks on the "get" button to download the active elements.
         """
-        #print current page html
-        printc(self.driver.current_url)
-        printc(self.driver.page_source)
         get_button = self.driver.find_element(By.ID, "get")
         get_button.click()
 

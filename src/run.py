@@ -32,7 +32,7 @@ async def main(cfg: DictConfig):
     paths_real = get_paths_real_sample(n=cfg.experiment.num_agents, paths_real_file=cfg.paths_real_file)
     agents = []
     for i,path in enumerate(paths_real):
-        path['src'] = cfg.experiment.src; path['tgt'] = cfg.experiment.tgt ###
+        # path['src'] = cfg.experiment.src; path['tgt'] = cfg.experiment.tgt ###
         env_kwargs = {"current_page": path["src"], "links_file": cfg.links_file}
         agent = instantiate(cfg.agent)
         agent.initialize_environment(**env_kwargs)

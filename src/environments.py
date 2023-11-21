@@ -66,11 +66,14 @@ class WikiEnvironment(Environment):
     def _set_current_page(self, new_page: str):
         self.current_page = wikify_article_name(new_page)
 
-    def change_page(self, new_page: str, **kwargs):
+    def change_page(self, new_page: str, links_seen_on_current_page: List[str] = None, **kwargs):
         wikified_new_page = wikify_article_name(new_page)
         assert len(wikified_new_page) > 0, "Page name can't be empty. Choose a different action."
-        assert wikified_new_page in self.links, f"Link {wikified_new_page} not on current page. Try a different page."
-
+        if not links_seen_on_current_page:
+            assert wikified_new_page in self.links, f"Link {wikified_new_page} not on current page. Try a different page."
+        else:
+            assert wikified_new_page in links_seen_on_current_page, f"Link {wikified_new_page} not on current page. Try a different page."
+            
         self.page_history.append(wikified_new_page)
         self.full_page_history.append(wikified_new_page)
         self.content_history.append(self.content)
