@@ -351,6 +351,9 @@ def clean_nav_text(text:str):
     #remove empty lines
     text = re.sub(r'\n\s*\n', '\n', text)
 
+    # turn 2 or more spaces into tabs
+    text = re.sub(r' {2,}', '\t', text)
+
     return text
 
 def emptyFolder(path):

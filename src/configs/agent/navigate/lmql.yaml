@@ -16,20 +16,20 @@ agent_description: |-
 instructions: |
   I'm playing a game with the objective of getting from a source Wikipedia article to a target article in the least amount of clicks.
   I can only click on articles I've already seen by scrolling the page, and the clickable articles are formatted like this: [article](article_link).
-  I can also scroll down the page to see more content and links, or go back to the previous page.
+  I can also scroll down the page to see more content and links, or go back to the previous article.
   Always respond to me in the format:
   Thought:
-  [your thought process in one line. Example: "We want to get closer to the target page Einstein from the source page Science. Einstein was a famous physicist, and Physics is a subset of Science. There is a link to Physics on the page, so we should click on it."]
+  [your thought process in one line. Example: "We want to get closer to the target article Einstein from the source article Science. Einstein was a famous physicist, and Physics is a subset of Science. There is a link to Physics on this article, so we should click on it."]
   Action:
   [action I should take. Example: "click(Physics)"]
 
 user_template: |-
   Here's what I see on the page {replace[src]}:
-  [TOP OF WINDOW]
+  [top of window]
   {replace[content]}
-  [BOTTOM OF WINDOW]
-  I'm on the Wikipedia page for {replace[src]} and I want to get to the page for {replace[tgt]} in the least amount of clicks. The article links I've already seen in this article and that I can click on are: {replace[links_seen_on_current_page]}.
-  I have {replace[remaining_scrolls]} scrolls left on this page. I can either: click on a link that will get me closer to the target, scroll down the page, or go back to the previous page: {replace[prev]}. First tell me your thought process and then tell me what to do. Respond with "back", "click(article_link)", or "scroll_down".
+  [bottom of window]
+  I'm on the Wikipedia article for {replace[src]} and I want to get to the article for {replace[tgt]} in the least amount of clicks. The article links I've already seen in this article and that I can click on are: {replace[links_seen_on_current_page]}.
+  I have {replace[remaining_scrolls]} scrolls left on this article. I can either: click on a link that will get me closer to the target, scroll down the page, or go back to the previous article: {replace[prev]}. First tell me your thought process and then tell me what to do. Respond with "back", "click(article_link)", or "scroll_down".
   
 user_initial_prefix: |
   {replace[instructions]}{replace[feedback_prefix]}
@@ -37,9 +37,9 @@ user_initial_prefix: |
 lmql_query_str: |-
   lmql
   sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len={model_cfg[max_len]})
-  """{prompt}\n"""
-  """Thought:\n[thought]\n""" where stops_before(thought, 'Action:')
-  """Action:\n[next_action]""" where next_action in set(action_list)
+  """{prompt}"""
+  """Thought:\\n[thought]""" where stops_before(thought, 'Action:')
+  """Action:\\n[next_action]""" where next_action in set(action_list)
   if next_action=='click':
       """([link])""" where link in set(links)
 

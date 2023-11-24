@@ -52,6 +52,7 @@ class Agent:
     demonstrations_file: str = field(default=None)
     prompt: List[BaseMessage] = field(factory=list)
     prepared_prompt: str = field(factory=str)
+    full_model_response: str = field(default=None)
 
     # data about a run
     num_actions: int = field(default=0)
@@ -164,7 +165,7 @@ class Agent:
             user_message = HumanMessage(content = user_message_content)
             self.prompt.append(user_message)
         else: #got feedback
-            # append bad response and feedback to the prompt
+            # append feedback to the prompt
             self.prompt.append(HumanMessage(feedback))
     
         
@@ -185,11 +186,13 @@ class Agent:
         # substitute [ and ] with [[ and ]] to avoid lmql formatting
         prompt = re.sub(r'(?<!\[)\[(?!\[)', '[[', prompt)
         prompt = re.sub(r'(?<!\])\](?!\])', ']]', prompt)
-        
+        prompt = prompt.replace("\n", "\\n")
+
         formatted_query = self.lmql_query_str.format(prompt=prompt, model_cfg=self.model_cfg)
         # because lmql formats the query again, we have to turn single occurrences of { into {{ and } into }}
         formatted_query = re.sub(r'(?<!\{)\{(?!\{)', '{{', formatted_query)
         formatted_query = re.sub(r'(?<!\})\}(?!\})', '}}', formatted_query)
+        
         
         return lmql.query(formatted_query)
     
@@ -211,9 +214,8 @@ class Agent:
         self.build_prompt(feedback)
         prepared_prompt = prepare_chat(self.tokenizer,self.prompt)
         self.prepared_prompt = prepared_prompt
-        printc(f"Prepared prompt: {prepared_prompt}", c="y")
         printc(f"Prepared prompt number of tokens: {len(self.tokenizer(prepared_prompt)['input_ids'])}", c="p")
-        #printc(f"Agent {self.agent_id} says: {self.prompt[-1].content}")
+        printc(f"Agent {self.agent_id} says: {self.prompt[-1].content}")
         self.user_prompt_history.append(self.prompt[-1].content)
 
         # Send prompt to model
@@ -224,15 +226,13 @@ class Agent:
         else:
             variables = {"thought": input("Thought: "), "next_action": input("Next action: ")}
             response = lmql.LMQLResult(prompt=f"{self.prepared_prompt}\nThought: {variables['thought']}\nNext action: {variables['next_action']}", variables=variables)
-        # response.prompt has input and output, i want the output text only (aka removing the prepared prompt)
-        ### TODO: fix this, its eating the first character
-        printc(f"Response from model: {response.prompt}", c="p")
-        self.prompt.append(AIMessage(response.prompt[len(prepared_prompt):]))
-        self.raw_response_history.append(response.prompt[len(prepared_prompt):])
-
-        printc(f"Agent {self.agent_id} received response. Time in queue: {time() - start} seconds. Response:\n{self.raw_response_history[-1]}")
+        extracted_response = response.prompt[len(prepared_prompt):]
+        self.full_model_response = response.prompt
+        self.prompt.append(AIMessage(extracted_response))
+        self.raw_response_history.append(extracted_response)
+        printc(f"LMQL Response: {response.prompt}", c="p")
+        printc(f"Agent {self.agent_id} received response. Time in queue: {time() - start} seconds. Response:\n{response.variables}")
         self.response_history.append(response.variables)
-        printc(f"Variables: {response.variables}", c="y")
         # Apply actions
         actions = self.extract_actions_from_lmql_variables(response.variables)
         self.apply_actions(actions)
@@ -358,7 +358,7 @@ class LinkClickAgent(BaseWikiAgent):
 
     default_lmql_query_str = '''lmql
 sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len={model_cfg[max_len]})
-"""{prompt}\n"""
+"""{prompt}"""
 """{{"next_page": "[next_page]"}}""" where stops_before(next_page, '"')
 '''
     lmql_query_str: str = field(default=default_lmql_query_str)
@@ -393,8 +393,6 @@ sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_
     def observe_environment(self):
         prev_page = self.environment.page_history[-2] if len(self.environment.page_history) > 1 else "none"
         links = self.environment.links
-        if self.use_back:
-            links.append("NA")
 
         observed_data = {
             "prev": prev_page,
@@ -406,6 +404,8 @@ sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_
     
     async def send_query_lmql(self, query):
         links = self.environment.links
+        if self.use_back and "NA" not in links and self.environment.current_page != self.source_page:
+            links.append("NA")
         return await query(candidates=links, model=self.model)
     
     def extract_actions_from_lmql_variables(self, variables: dict) -> dict:
@@ -453,7 +453,7 @@ class WikiTextAgent(BaseWikiAgent):
     action_list: List[str] = field(default=["scroll_down", "click", "back"])
     default_lmql_query_str = '''lmql
 sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len={model_cfg[max_len]})
-"""{prompt}\n"""
+"""{prompt}"""
 "Action:\n[next_action]" where stops_before(next_action, '(')
 if next_action=='click':
     "([link])"
