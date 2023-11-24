@@ -222,13 +222,14 @@ class Agent:
         if not self.debug:
             response = await self.send_query_lmql(query)
         else:
-            input_ = input("Response from model:")
-            response = AIMessage(input_)
+            variables = {"thought": input("Thought: "), "next_action": input("Next action: ")}
+            response = lmql.LMQLResult(prompt=f"{self.prepared_prompt}\nThought: {variables['thought']}\nNext action: {variables['next_action']}", variables=variables)
         # response.prompt has input and output, i want the output text only (aka removing the prepared prompt)
         ### TODO: fix this, its eating the first character
         printc(f"Response from model: {response.prompt}", c="p")
         self.prompt.append(AIMessage(response.prompt[len(prepared_prompt):]))
         self.raw_response_history.append(response.prompt[len(prepared_prompt):])
+
         printc(f"Agent {self.agent_id} received response. Time in queue: {time() - start} seconds. Response:\n{self.raw_response_history[-1]}")
         self.response_history.append(response.variables)
         printc(f"Variables: {response.variables}", c="y")
@@ -357,7 +358,7 @@ class LinkClickAgent(BaseWikiAgent):
 
     default_lmql_query_str = '''lmql
 sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len={model_cfg[max_len]})
-"""{prompt}"""
+"""{prompt}\n"""
 """{{"next_page": "[next_page]"}}""" where stops_before(next_page, '"')
 '''
     lmql_query_str: str = field(default=default_lmql_query_str)
@@ -452,7 +453,7 @@ class WikiTextAgent(BaseWikiAgent):
     action_list: List[str] = field(default=["scroll_down", "click", "back"])
     default_lmql_query_str = '''lmql
 sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len={model_cfg[max_len]})
-"""{prompt}"""
+"""{prompt}\n"""
 "Action:\n[next_action]" where stops_before(next_action, '(')
 if next_action=='click':
     "([link])"

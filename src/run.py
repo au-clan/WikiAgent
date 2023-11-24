@@ -2,21 +2,14 @@ import hydra
 from omegaconf import DictConfig
 from hydra.utils import instantiate
 import os
-import pandas as pd
-from pprint import pprint
 from time import time
 import asyncio
 import torch
 import lmql
-from model_utils import SystemMessage, HumanMessage, AIMessage, BaseMessage
 from logger import get_logger
-from utils import printc, load_tsv_to_dict_list, get_paths_real_sample
-from environments import LinkWikiEnviroment, WebNavigatorHTML, WebWikiEnvironment
+from utils import get_paths_real_sample
 from agents import *
-from constrained_agents import *
-from batch_handler import BatchHandler
 import nest_asyncio
-from selenium import webdriver
 
 
 os.environ['HYDRA_FULL_ERROR'] = '1'

@@ -37,7 +37,7 @@ demonstration_template: |-
 lmql_query_str: |-
   lmql
   sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len={model_cfg[max_len]})
-  """{prompt}"""
+  """{prompt}\n"""
   """Thought:\n[thought]""" where stops_before(thought, 'Next article:')
   """Next article:\n[next_page]""" where next_page in set(candidates)
 

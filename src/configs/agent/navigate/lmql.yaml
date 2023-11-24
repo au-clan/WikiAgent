@@ -37,8 +37,8 @@ user_initial_prefix: |
 lmql_query_str: |-
   lmql
   sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len={model_cfg[max_len]})
-  """{prompt}"""
-  """Thought:\n[thought]""" where stops_before(thought, 'Action:')
+  """{prompt}\n"""
+  """Thought:\n[thought]\n""" where stops_before(thought, 'Action:')
   """Action:\n[next_action]""" where next_action in set(action_list)
   if next_action=='click':
       """([link])""" where link in set(links)

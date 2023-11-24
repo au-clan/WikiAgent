@@ -14,7 +14,7 @@ from logger import get_logger
 from utils import *
 from environments import LinkWikiEnviroment, WebWikiEnvironment
 from agents import *
-from constrained_agents import *
+from deprecated.constrained_agents import *
 from batch_handler import BatchHandler
 from models.huggingface_model import *
 from navigator import *
