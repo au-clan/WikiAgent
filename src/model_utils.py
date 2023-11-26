@@ -316,7 +316,8 @@ def prepare_chat(tokenizer, chat: List[BaseMessage]) -> str:
     # if there's no 'system' role in chat_template
     try:
         output = tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True)
-    except AssertionError:
+    # catch any type of error
+    except:
         # this probably means that there's no 'system' role in chat_template
         # append system message to first user message
         first_user_message = chat[0].content + "\n" + chat[1].content

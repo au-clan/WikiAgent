@@ -1,0 +1,48 @@
+_target_: agents.LinkClickDFSAgent
+agent_name: link_click/lmql_dfs_back_reminder
+fewshot: 1
+use_retry: True
+max_tries: 3
+max_actions: 50
+use_back: True
+use_feedback: True
+
+multiturn_demonstrations: True
+
+agent_description: |-
+  Assistant is a expert JSON builder designed to assist the user in completing tasks.
+  {replace[instructions]}{replace[feedback_prefix]}
+
+instructions: |
+  I'm playing a game where, given source and target Wikipedia articles, my goal is to reach the target article starting from the source article in as few clicks as possible. I need to click on the link to the article that will take the user closer to the target, **only** from the provided candidates. If no available article takes me closer to the target, I can select select "NA" as the next article.
+
+  ##Input
+  You will be given input in the JSON format as described below
+  Input format:
+  {"source": "<source article>", "target": "<target article>", "links": "<outgoing links from current article>"}
+
+  ##Output
+  You should only respond in the JSON format as described below
+  Output format:
+  {"thought": "<your thought on what the user should do next>", "next_page": "<chosen page for user to click on>"}
+  Ensure the response can be parsed by Python json.loads
+
+user_template: |-
+  {{"source": "{replace[src]}", "target": "{replace[tgt]}", "links": "{replace[links]}"}}
+  Remember that I'm currently on the page {replace[src]} and I'm trying to reach the page {replace[tgt]}, in the least number of clicks possible. What article should I click on? Give me your thought process in making that decision. If no available link takes you closer to the target, select "NA" as the next page.
+  
+demonstration_template: |-
+  {{"thought": "{replace[reason]}", "next_article": "{replace[click]}"}}
+
+lmql_query_str: |-
+  lmql
+  sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len={model_cfg[max_len]})
+  """{prompt}"""
+  """{{"thought":"[thought]", "next_article": "[next_page]"}}""" where stops_before(thought, '"') and next_page in set(candidates)
+
+assistant_prefix: "" # no prefix because this is done in the lmql query function
+user_initial_prefix: ""
+
+demonstrations_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/fewshot_click_demonstrations.tsv
+agent_runs_file: ${agent_runs_file}
+

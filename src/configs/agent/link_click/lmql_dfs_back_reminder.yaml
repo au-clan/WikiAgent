@@ -10,11 +10,11 @@ use_feedback: True
 multiturn_demonstrations: True
 
 agent_description: |-
-  Assistant is a expert JSON builder designed to assist the user in playing play the game of Wikispeedia. Assistant is familiar with all Wikipedia pages and can help the user find a path between two Wikipedia articles.
+  Assistant is a expert JSON builder designed to assist the user in completing tasks.
   {replace[instructions]}{replace[feedback_prefix]}
 
 instructions: |
-  In Wikispeedia, given two Wikipedia articles, a source and a target, your goal is to reach the target article starting from the source article in as few clicks as possible. For the articles given this is always possible. Choose the page that will take the user closer to the target, **only** from the provided candidates. If no available link takes you closer to the target, select "NA" as the next page.
+  I'm playing a game where, given source and target Wikipedia articles, my goal is to reach the target article starting from the source article in as few clicks as possible. I need to click on the link to the article that will take the user closer to the target, **only** from the provided candidates. If no available article takes me closer to the target, I can select select "NA" as the next article.
 
   ##Input
   You will be given input in the JSON format as described below
@@ -29,16 +29,16 @@ instructions: |
 
 user_template: |-
   {{"source": "{replace[src]}", "target": "{replace[tgt]}", "links": "{replace[links]}"}}
-  Remember that you are currently on the page {replace[src]} and you are trying to reach the page {replace[tgt]}, in the least number of clicks possible. Choose the page that will take you closer to the target. If no available link takes you closer to the target, select "NA" as the next page.
+  Remember that I'm currently on the page {replace[src]} and I'm trying to reach the page {replace[tgt]}, in the least number of clicks possible. What article should I click on? If no available link takes you closer to the target, select "NA" as the next page.
   
 demonstration_template: |-
-  {{"next_page": "{replace[click]}"}}
+  {{"next_article": "{replace[click]}"}}
 
 lmql_query_str: |-
   lmql
   sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len={model_cfg[max_len]})
   """{prompt}"""
-  """{{"next_page": "[next_page]"}}""" where next_page in set(candidates)
+  """{{"next_article": "[next_page]"}}""" and next_page in set(candidates)
 
 assistant_prefix: "" # no prefix because this is done in the lmql query function
 user_initial_prefix: ""
