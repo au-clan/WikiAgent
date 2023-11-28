@@ -279,7 +279,29 @@ def navigate_web(cfg: DictConfig):
     # print(nav.getHTML())
 
 def navigate_NavigatorHTML(cfg: DictConfig):
-    
+    current = "Flamingo"
+    nav = NavigatorHTML(pages_path=cfg.pages_folder, model_name=cfg.model.model_name)
+    nav.set_curr_doc(current)
+    printc(nav.window_text, c='g')
+    printc(nav.window_links, c='b')
+    printc(nav.headings, c='r')
+
+    #interact with the environment
+    while True:
+        action = input("Action: ")
+        if action=="moveDown":
+            nav.move_down()
+        elif action=="moveUp":
+            nav.move_up()
+        elif action=="click":
+            input_link = input("Link: ")
+            nav.set_curr_doc(input_link)
+        print("\n\n")
+        printc([nav.window_text], c='g')
+        printc(nav.window_links, c='b')
+        printc(nav.headings, c='r')
+
+
 def chat_template():
     chat = [#SystemMessage("sys:You are a nice assistant!"), 
             HumanMessage("u:Hello!"), 
@@ -292,5 +314,5 @@ def chat_template():
     print(tokenizer.apply_chat_template(chat, tokenize=False))
 
 if __name__ == "__main__":
-    hydra_wrapper(lmql_test)
+    hydra_wrapper(navigate_NavigatorHTML)
     # chat_template()

@@ -1,10 +1,12 @@
-import tiktoken, os, html2text
+import os, html2text
 from bs4 import BeautifulSoup
 import pandas as pd
 import urllib.parse
+import re
 from utils import printc
-
+from transformers import AutoTokenizer
 from selenium.webdriver.common.by import By
+from typing import List, Dict, Tuple
 
 # Custom 
 from html2text_ import clean, clean_text
@@ -13,53 +15,100 @@ from utils import page2href, get_links, formatPageURL, retextMarkdownLinks
 from utils import getWikiNavFolder, emptyFolder, getHeadings, getTextHTML
 from formatHTML import formatHTML
 
-
 class NavigatorHTML:
     """
     First implementation of the HTML Navigator.
     Moves from page to page by just transforming html to text.
     """
-    def __init__(self, pages_path, encoding_model="cl100k_base", token_window=300, overlap=0.1):
+    def __init__(self, pages_path, model_name="meta-llama/Llama-2-7b-chat-hf", token_window=300, overlap=0.1):
         self.pages_path = pages_path
-        self.encoder = tiktoken.get_encoding(encoding_model)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.current_page = None
         self.text = None # Whole document text
-        self.encodings = None # Whole document encodings
+        self.tokens = None # Whole document encodings
         self.window = {"start":0, "end":token_window} # Token indices for current window
         self.token_window = token_window # Size of the token window
         self.overlap = overlap # Size of the overlap when you move the window
         self.window_text = None # Text for the current window
         self.window_encodings = None # Encodings for the current window
         self.window_links = None # Links existing in the current window
-        
+        self.headings = None # Headings in the current page
+
+        self.html2text_handler = html2text.HTML2Text() # Handler for html2text
+        self.html2text_handler.body_width = 0 # Set body width to 0 to avoid line breaks
+
+
     def get_position(self):
         """
         Returns the relative position for the middle of the window in the document (in %).
         """
         position = self.window["end"]- self.token_window/2
-        relative_position = round(position / len(self.encodings) * 100, 2)
+        relative_position = round(position / len(self.tokens) * 100, 2)
         return relative_position
 
     def set_curr_doc(self, current_page):
         self.current_page = current_page
         with open(page2href(self.pages_path, current_page), "r", encoding='unicode_escape') as f:
                 doc = BeautifulSoup(f, "html.parser")
+
+        self.headings = [(heading.text.strip(), heading.name) for heading in doc.find_all(["h2", "h3", "h4", "h5", "h6"])]
+        
         body = doc.find("div", {"id" : "bodyContent"})
         if body == None:
-           print("Can't decode SOS Children’s village documents")
+           print("No body found !")
         else:
-            self.text = clean(body,0, current_page)
-            self.encodings = self.encoder.encode(self.text)
+            self.text = self.html2text_handler.handle(str(body))
+            self.filter_links_from_text()
+            self.clean_text()
+
+            printc(self.text, c='p')
+            self.tokens = self.tokenizer.encode(self.text)
             self.window = {"start":0, "end":self.token_window} 
             self.update_window()
+
+    def filter_links_from_text(self):
+        """
+        - Turns links from [ text ]( url.link.htm "name" ) to [text](link)
+        - Removes all non Wikipedia links (mostly links to images) from the current window text.
+        """
+        # turn links from [ text ]( url.link.htm "name" ) to [text](link), example: [ fossil record ](../../wp/f/Fossil_record.htm "Fossil record") -> [fossil record](Fossil_record)
+        pattern = r"\[\s*([^]\s]+(?:\s+[^]\s]+)*)\s*\]\([^)]*/([^)]+)\.htm[^)]*\)"
+        self.text = re.sub(pattern, r"[\1](\2)", self.text)
+
+        # remove empty links, for example: delete things like [ ](../../images/50/5099.jpg.htm "Enlarge")
+        empty_link_pattern = r"\[\s*\]\([^)]*\)"
+        self.text = re.sub(empty_link_pattern, "", self.text)
+
+        # # remove all non Wikipedia links, for example: delete things like [A Caribbean Flamingo \(Phoenicopterus ruber\), with Chilean Flamingos \(P.chilensis\) in the background](../../images/50/5098.jpg)
+        # non_wiki_link_pattern = r"\[\s*([^]]*?)\s*\]\((?!.*wp\/.*\.htm)[^)]*\)"
+        # self.text = re.sub(non_wiki_link_pattern, "", self.text)
+
+    def clean_text(self):
+        # turn 2 newlines or more into 1 newline
+        self.text = re.sub(r"\n{2,}", "\n", self.text)
+
+        # turn 2 spaces or more into \t
+        self.text = re.sub(r" {2,}", "\t", self.text)
+
+    def extract_links_from_window(self) -> List[str]:
+        """
+        Extracts the links from the current window text. Links are formatted like this: [text](link).
+        """
+        # links are formatted like this: [text](link), I want to extract the link
+        link_pattern = r"\[\s*[^]]*\s*\]\(([^)]*)\)"
+        links = re.findall(link_pattern, self.window_text)
+
+        # remove links that have .jpg or .png in them
+        links = [link for link in links if ".jpg" not in link and ".png" not in link]
+        return links
 
     def update_window(self):
         """
         Updae the window text, encodings and links based on the current window.
         """
-        self.window_encodings = self.encodings[self.window["start"] : self.window["end"]]
-        self.window_text  = self.encoder.decode(self.window_encodings)
-        self.window_links = get_links(self.window_text)
+        self.window_encodings = self.tokens[self.window["start"] : self.window["end"]]
+        self.window_text  = self.tokenizer.decode(self.window_encodings, skip_special_tokens=True)
+        self.window_links = self.extract_links_from_window()
     
     def move_down(self):
         """
@@ -67,9 +116,9 @@ class NavigatorHTML:
         """
         self.window["start"] += self.token_window - int(self.token_window * self.overlap)
         self.window["end"] += self.token_window - int(self.token_window * self.overlap)
-        if self.window["end"] >= len(self.encodings):
-            self.window["start"] = len(self.encodings)-self.token_window
-            self.window["end"] = len(self.encodings)
+        if self.window["end"] >= len(self.tokens):
+            self.window["start"] = len(self.tokens)-self.token_window
+            self.window["end"] = len(self.tokens)
         self.update_window()
     
     def move_up(self):
@@ -94,6 +143,33 @@ class NavigatorHTML:
             return True
         else:
             return False
+    
+    def move_to_heading(self, heading: tuple):
+        """
+        Moves the window to the heading if it exists.
+        """
+        # heading = (heading_text, heading_tag), heading_tag = h2, h3, h4, h5, h6
+        # h2 starts with ##\t, h3 with ###\t, etc.
+        markdown_prefix = {
+        "h2": "##\t",
+        "h3": "###\t",
+        "h4": "####\t",
+        "h5": "#####\t",
+        "h6": "######\t"
+        }
+        heading_string = markdown_prefix[heading[1]] + heading[0]
+
+        #find the sequence of tokens in self.tokens that corresponds to heading_string
+        heading_encodings = self.tokenizer.encode(heading_string)
+        heading_encodings = heading_encodings[1:-1]
+
+        # find the first occurrence of the sub-list heading_encodings in self.tokens
+        for i in range(len(self.tokens)):
+
+
+        
+
+
                 
                 
 class WebNavigatorHTML:
