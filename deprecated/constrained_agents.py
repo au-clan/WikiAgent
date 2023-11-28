@@ -30,7 +30,7 @@ class WikiTextAgent(BaseWikiAgent):
         '''
     def observe_environment(self):
         ## for DFS
-        self.environment.remove_pages_from_links(self.visited_pages)
+        self.environment.remove_visited_pages(self.visited_pages)
         self.environment.content = filter_links_from_text(self.environment.content, self.environment.links)
         prev_page = self.environment.page_history[-2] if len(self.environment.page_history) > 1 else "none"
 

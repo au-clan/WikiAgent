@@ -392,3 +392,10 @@ def getTextHTML(html_source):
     soup = BeautifulSoup(html_source, 'html.parser')
     text = soup.text.strip()
     return text
+
+def remove_items_from_list(l, items):
+    """
+    Removes items from a list.
+    """
+    l = [item for item in l if item not in items]
+    return l

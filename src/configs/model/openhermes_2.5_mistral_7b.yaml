@@ -5,7 +5,7 @@ model_path:
 model_type: chat
 
 temperature: 0.5
-max_len: 8192
+max_len: 4096
 dtype: float32 #set to False if on CPU
 load_in_8bit: False
 load_in_4bit: False

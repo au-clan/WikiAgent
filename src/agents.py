@@ -12,7 +12,7 @@ from transformers import AutoTokenizer
 from models.huggingface_model import preprocess_llama_chat
 from environments import *
 from batch_handler import BatchHandler
-from utils import filter_links_from_text, printc, wikify_article_name
+from utils import filter_links_from_text, printc, wikify_article_name, remove_items_from_list
 from time import time
 import pandas as pd
 import json
@@ -30,6 +30,7 @@ class Agent:
     source_page: str = field(default=None)
     agent_id: int = field(default=0)
     debug: bool = field(default=False)
+    chat_mode: bool = field(default=False) # if true, the conversation will be kept in the prompt
 
     #features that are common to all agents
     use_feedback: bool = field(default=False)
@@ -120,6 +121,16 @@ class Agent:
         """
         raise NotImplementedError("Subclasses must implement the observe_environment method.")
     
+    def dequeue_prompt(self):
+        """ If prompt exceeds max_len: removes the first User and Assistant messages from the prompt, keeping the System message."""
+        # check if prompt is too big for model context
+        current_prompt_len = len(self.tokenizer(self.prepared_prompt)['input_ids'])
+        if current_prompt_len > self.model_cfg['max_len']:
+            printc(f"Prompt length {current_prompt_len} exceeds max_len {self.model_cfg['max_len']}. Removing first user and assistant messages.")
+            system_message = self.prompt[0]
+            self.prompt = self.prompt[3:] #skip system, user 1, assistant 1
+            self.prompt = [system_message] + self.prompt
+
     def build_prompt(self, feedback: str = None) -> List[BaseMessage]:
         """
         Agent observes the environment and builds a prompt, that will be passed to the model.
@@ -129,9 +140,26 @@ class Agent:
                 Feedback from the user.
                 
         """
-        replace_dict = {"instructions": self.instructions, "feedback_prefix": self.prompt_template['feedback_prefix']}
         user_message_content = ""
-        if not feedback:
+        replace_dict = {"instructions": self.instructions, "feedback_prefix": self.prompt_template['feedback_prefix']}
+
+        if feedback:
+            self.prompt.append(HumanMessage(feedback))
+            self.dequeue_prompt()
+            return
+
+        if self.chat_mode and len(self.prompt) > 0:
+            # prompt already built, just append the last message
+            env_data = self.observe_environment()
+
+            # current user prompt
+            user_message_content += self.user_template.format(replace = env_data)
+            user_message = HumanMessage(content = user_message_content)
+            self.prompt.append(user_message)
+            self.dequeue_prompt()
+            return
+        
+        else: # if not chat_mode or prompt is empty
             if self.multiturn_demonstrations:
                 replace_dict['agent_description'] = self.agent_description.format(replace=replace_dict)
                 system_message_content = self.prompt_template['system'].format(replace=replace_dict)                
@@ -158,15 +186,14 @@ class Agent:
                 system_message = SystemMessage(system_message_content)
                 self.prompt = [system_message]
 
+            # prompt already built, just append the last message
             env_data = self.observe_environment()
 
             # current user prompt
             user_message_content += self.user_template.format(replace = env_data)
             user_message = HumanMessage(content = user_message_content)
             self.prompt.append(user_message)
-        else: #got feedback
-            # append feedback to the prompt
-            self.prompt.append(HumanMessage(feedback))
+            return
     
         
     def extract_actions_from_lmql_variables(self, variables: dict) -> dict:
@@ -214,8 +241,9 @@ class Agent:
         self.build_prompt(feedback)
         prepared_prompt = prepare_chat(self.tokenizer,self.prompt)
         self.prepared_prompt = prepared_prompt
+        printc(f"Full prompt: {self.prepared_prompt}", c="p")
         printc(f"Prepared prompt number of tokens: {len(self.tokenizer(prepared_prompt)['input_ids'])}", c="p")
-        printc(f"Agent {self.agent_id} says: {self.prompt[-1].content}")
+        # printc(f"Agent {self.agent_id} says: {self.prompt[-1].content}")
         self.user_prompt_history.append(self.prompt[-1].content)
 
         # Send prompt to model
@@ -224,13 +252,12 @@ class Agent:
         if not self.debug:
             response = await self.send_query_lmql(query)
         else:
-            variables = {"thought": input("Thought: "), "next_action": input("Next action: ")}
+            variables = {"thought": input("Thought: "), "next_action": input("Next action: "), "link": input("Link: "), "heading": input("Heading: ")}
             response = lmql.LMQLResult(prompt=f"{self.prepared_prompt}\nThought: {variables['thought']}\nNext action: {variables['next_action']}", variables=variables)
         extracted_response = response.prompt[len(prepared_prompt):]
         self.full_model_response = response.prompt
         self.prompt.append(AIMessage(extracted_response))
         self.raw_response_history.append(extracted_response)
-        printc(f"LMQL Response: {response.prompt}", c="p")
         printc(f"Agent {self.agent_id} received response. Time in queue: {time() - start} seconds. Response:\n{response.variables}")
         self.response_history.append(response.variables)
         # Apply actions
@@ -357,7 +384,7 @@ class LinkClickAgent(BaseWikiAgent):
     sample_random_demos: bool = field(default=False)
 
     default_lmql_query_str = '''lmql
-sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len={model_cfg[max_len]})
+sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len=2*{model_cfg[max_len]})
 """{prompt}"""
 """{{"next_page": "[next_page]"}}""" where stops_before(next_page, '"')
 '''
@@ -435,7 +462,7 @@ class LinkClickDFSAgent(LinkClickAgent):
         return super().__attrs_post_init__()
 
     def observe_environment(self):
-        self.environment.remove_pages_from_links(self.visited_pages)
+        self.environment.links = remove_items_from_list(self.environment.links, self.visited_pages)
         return super().observe_environment()
     
     def apply_actions(self, actions: dict):
@@ -450,17 +477,24 @@ class LinkClickDFSAgent(LinkClickAgent):
 
 @define
 class WikiTextAgent(BaseWikiAgent):
+    """Still does DFS, but uses the text of the page to make decisions."""
+
     action_list: List[str] = field(default=["scroll_down", "click", "back"])
+    valid_action_list: List[str] = field(default=["scroll_down", "click", "back"])
+    action_list_to_str: dict = field(default={"scroll_down": "scroll_down", "back": "back", "click": "click(article_link)", "move_to": "move_to(section)"})
+    links_seen_on_page: dict = field(default={}) # {page: [links]}
+    visited_headings_on_page: dict = field(default={}) # {page: [headings]}
+    clean_prompt_on_click: bool = field(default=True)
+
     default_lmql_query_str = '''lmql
-sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len={model_cfg[max_len]})
+sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len=2*{model_cfg[max_len]})
 """{prompt}"""
 "Action:\n[next_action]" where stops_before(next_action, '(')
 if next_action=='click':
     "([link])"
 '''
-    links_seen_on_current_page: List[str] = field(factory=list)
+    lmql_query_str: str = field(default=default_lmql_query_str)
 
-    """Still does DFS, but uses the text of the page to make decisions."""
     def _load_fewshot_demonstrations_data(self) -> List[dict]:
         return [{}]
     
@@ -475,24 +509,60 @@ if next_action=='click':
         env = WebWikiEnvironment(nav=nav, **kwargs)
         self.environment = env
         self.source_page = self.environment.current_page
+        self.links_seen_on_page[self.environment.current_page] = []
+        self.visited_headings_on_page[self.environment.current_page] = []
 
-    def observe_environment(self):
-        ## for DFS
-        self.environment.remove_pages_from_links(self.visited_pages)
+    def get_available_actions_str(self):
+        """ Turn the available actions into a str in natural language to fill in user prompt"""
+        available_actions_str = ""
+        for i in range(len(self.valid_action_list)):
+            if i==0:
+                available_actions_str += f'"{self.action_list_to_str[self.valid_action_list[i]]}"'
+            elif i==len(self.valid_action_list)-1:
+                available_actions_str += f' or "{self.action_list_to_str[self.valid_action_list[i]]}"'
+            else:
+                available_actions_str += f', "{self.action_list_to_str[self.valid_action_list[i]]}"'
+        return available_actions_str
+
+    def set_valid_actions(self, links, headings):
+        self.valid_action_list = self.action_list.copy()
+        if len(links) == 0:
+            self.valid_action_list.remove("click")
+        if len(headings) == 0:
+            self.valid_action_list.remove("move_to")
+        if self.environment.current_page == self.source_page:
+            self.valid_action_list.remove("back")
+
+    def remove_visited_pages_and_headings(self):
+        self.environment.links = remove_items_from_list(self.environment.links, self.visited_pages)
+        self.environment.headings = remove_items_from_list(self.environment.headings, self.visited_headings_on_page[self.environment.current_page])
+        self.links_seen_on_page[self.environment.current_page] = remove_items_from_list(self.links_seen_on_page[self.environment.current_page], self.visited_pages)
         self.environment.content = filter_links_from_text(self.environment.content, self.environment.links)
+        
+    def observe_environment(self):
+        self.remove_visited_pages_and_headings()
         prev_page = self.environment.page_history[-2] if len(self.environment.page_history) > 1 else "none"
-        links = self.environment.links
-        self.links_seen_on_current_page.extend(links)
-        # remove duplicates
-        self.links_seen_on_current_page = list(set(self.links_seen_on_current_page))
+
+        # Update seen links
+        self.links_seen_on_page[self.environment.current_page].extend(self.environment.links)
+        self.links_seen_on_page[self.environment.current_page] = list(set(self.links_seen_on_page[self.environment.current_page]))
+        links = self.links_seen_on_page[self.environment.current_page]
+        headings = self.environment.headings
+        printc(f"Links: {links}", c="g")
+        printc(f"Headings: {headings}", c="g")
+
+        self.set_valid_actions(links, headings)
+        action_list_str = self.get_available_actions_str()
 
         observed_data = {
             "prev": prev_page,
             "src": self.environment.current_page,
             "tgt": self.target_page,
             "links": ";".join(self.environment.links),
-            "links_seen_on_current_page": ";".join(self.links_seen_on_current_page),
+            "headings": ";".join(self.environment.headings),
+            "links_seen_on_current_page": ";".join(self.links_seen_on_page[self.environment.current_page]),
             "content": self.environment.content,
+            "actions_str": action_list_str,
             "remaining_actions": f"{self.max_actions - self.num_actions}/{self.max_actions}",
             "remaining_scrolls": self.environment.position[1] - self.environment.position[0],
         }
@@ -500,7 +570,8 @@ if next_action=='click':
     
     async def send_query_lmql(self, query):
         links = self.links_seen_on_current_page
-        return await query(action_list=self.action_list, links=links, model=self.model)
+        headings = self.environment.headings
+        return await query(action_list=self.valid_action_list, links=links, headings=headings, model=self.model)
         
     def extract_actions_from_lmql_variables(self, variables: dict) -> dict:
         """ Processes the model output and returns a dict with the agent's choices."""
@@ -514,8 +585,18 @@ if next_action=='click':
             # we don't count scrolls as actions, and there's +1 num_actions in the agent.run
             self.num_actions -= 1
         elif actions['next_action'] == "click":
-            self.environment.change_page(actions['link'], links_seen_on_current_page=self.links_seen_on_current_page)
-            self.links_seen_on_current_page = []
+            self.environment.change_page(actions['link'], links_seen_on_current_page=self.links_seen_on_page[self.environment.current_page])
+            self.visited_pages.append(actions['link'])
+            self.links_seen_on_page[self.environment.current_page] = []
+            self.visited_headings_on_page[self.environment.current_page] = []
+            if self.clean_prompt_on_click:
+                #keep only the system message
+                self.prompt = self.prompt[0]
+        elif actions['next_action'] == "move_to":
+            self.environment.move(actions['heading'])
+            self.visited_headings_on_page[self.environment.current_page].append(actions['heading'])
+            # we don't count scrolls as actions, and there's +1 num_actions in the agent.run
+            self.num_actions -= 1
         else: # actions['next_action'] == "back":
             self.environment.back()
 

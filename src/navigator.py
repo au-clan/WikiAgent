@@ -199,7 +199,7 @@ class WebNavigatorHTML:
         """
         Move back once in the browser history.
         """
-        self.driver.back()
+        self.driver.back()        
         self.active_updated = True
 
     def moveForward(self):

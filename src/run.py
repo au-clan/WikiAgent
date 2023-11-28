@@ -10,6 +10,7 @@ from logger import get_logger
 from utils import get_paths_real_sample
 from agents import *
 import nest_asyncio
+import logging
 
 
 os.environ['HYDRA_FULL_ERROR'] = '1'
@@ -17,6 +18,10 @@ os.environ['HYDRA_FULL_ERROR'] = '1'
 #log = get_logger()
 
 async def main(cfg: DictConfig):
+    # disable selenium logging
+    logger = logging.getLogger('selenium.webdriver.remote.remote_connection')
+    logger.setLevel(logging.WARNING)
+    
     start = time()
     model = lmql.model(f"local:{cfg.model['model_path']}" if cfg.model['model_path'] else f"local:{cfg.model['model_name']}", 
                         cuda=True if cfg.model['device']=='cuda' else False, 

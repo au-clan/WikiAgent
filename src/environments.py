@@ -65,6 +65,8 @@ class WikiEnvironment(Environment):
 
     def _set_current_page(self, new_page: str):
         self.current_page = wikify_article_name(new_page)
+        self._set_content()
+        self._set_links()
 
     def change_page(self, new_page: str, links_seen_on_current_page: List[str] = None, **kwargs):
         wikified_new_page = wikify_article_name(new_page)
@@ -78,14 +80,6 @@ class WikiEnvironment(Environment):
         self.full_page_history.append(wikified_new_page)
         self.content_history.append(self.content)
         self._set_current_page(wikified_new_page)
-        self._set_content()
-        self._set_links()
-    
-    def remove_pages_from_links(self, pages: List[str]):
-        """
-        Removes pages from the candidate links.
-        """
-        self.links = [link for link in self.links if link not in pages]
     
     def back(self):
         """
@@ -96,8 +90,6 @@ class WikiEnvironment(Environment):
             self.page_history.pop()
             self.content_history.pop()
             self._set_current_page(self.page_history[-1])
-            self._set_content()
-            self._set_links()
         else:
             raise Exception("Cannot go back any further. Choose a different action.")
 
@@ -124,18 +116,27 @@ class WebWikiEnvironment(WikiEnvironment):
     nav = field(factory=WebNavigatorHTML)
     position = field(factory=tuple)
     html = field(default=False)
+    headings = field(factory=list)
 
     def __attrs_post_init__(self):
         self._set_position()
+        self._set_headings()
         super().__attrs_post_init__()
 
     def _set_current_page(self, new_page: str):
         new_page_wikified= wikify_article_name(new_page)
         self.nav.movePage(quote(quote(new_page_wikified)))
         self.current_page = new_page_wikified
+        self._set_position()
+        self._set_content()
+        self._set_links()
+        self._set_headings()
     
     def _set_position(self):
         self.position = self.nav.getScrollPosition()
+
+    def _set_headings(self):
+        self.headings = self.nav.getHeadings()
 
     def _set_links(self):
         self.links = [unquote(unquote(link)) for link in self.nav.getLinks()]
@@ -149,11 +150,7 @@ class WebWikiEnvironment(WikiEnvironment):
             self.content = re.sub(pattern, "", self.nav.getHTML())
             # self.content = self.nav.getHTML()
         else:
-            ### dirty fix for invalid links
             self.content = clean_nav_text(self.nav.getText())
-            # pattern = r"\[\*(index|subject\.[^\]]*)\*\]"
-            # self.content = unquote(self.nav.getText())
-            # self.content = re.sub(pattern, "", self.content)
 
     def move(self, direction: str):
         """
@@ -163,12 +160,16 @@ class WebWikiEnvironment(WikiEnvironment):
             self.nav.moveDown()
         elif direction.strip().lower() == "up":
             self.nav.moveUp()
+        elif direction in self.headings:
+            self.nav.moveHeading(direction)
         else:
-            raise Exception("Invalid direction. Choose either 'up' or 'down'.")
+            raise Exception("Invalid direction. Choose either 'up' or 'down' or specific heading.")
         self._set_content()
         self._set_links()
+        print(self.links)###
         self._set_position()
         self.content_history.append(self.content)
+
 
     def back(self):
         """
@@ -177,12 +178,10 @@ class WebWikiEnvironment(WikiEnvironment):
         if len(self.page_history) > 1:
             self.full_page_history.append("<")
             self.page_history.pop()
-            self.content_history.pop()
+            #self.content_history.pop()
             self.nav.moveBack()
-            self.current_page = self.page_history[-1]
-            self._set_content()
-            self._set_links()
-            self._set_position()
+            printc(self.nav.getText(), c='g')
+            self._set_current_page(self.page_history[-1])
         else:
             raise Exception("Cannot go back any further. Choose a different action.")
     

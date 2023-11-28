@@ -2,7 +2,7 @@ defaults:
   - _self_
   - experiment: agent_test
   - model: mistral_7b_openorca
-  - agent: navigate/lmql
+  - agent: navigate/lmql_headings
   - hydra: inference
 
 # Directories (these are absolute paths on the nfs server)

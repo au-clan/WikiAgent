@@ -278,6 +278,8 @@ def navigate_web(cfg: DictConfig):
     # nav.moveDown()
     # print(nav.getHTML())
 
+def navigate_NavigatorHTML(cfg: DictConfig):
+    
 def chat_template():
     chat = [#SystemMessage("sys:You are a nice assistant!"), 
             HumanMessage("u:Hello!"), 
