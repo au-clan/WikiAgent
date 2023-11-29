@@ -1,10 +1,12 @@
+# -*- coding: utf-8 -*-
+
 import attr
 from attr import define, field
 import sys
 from typing import List
 sys.path.append("src/")
-from utils import load_links, wikify_article_name, clean_nav_text, printc
-from navigator import WebNavigatorHTML
+from utils import load_links, wikify_article_name, clean_nav_text, printc, filter_links_from_text, remove_items_from_list
+from navigator import WebNavigatorHTML, NavigatorHTML
 from urllib.parse import quote, unquote
 import re
 
@@ -109,6 +111,122 @@ class LinkWikiEnviroment(WikiEnvironment):
 
     def _set_content(self):
         pass
+
+@define 
+class TextWikiEnvironment(WikiEnvironment):
+    """
+    This one is a bit different from the other environments, it mostly uses the navigator to get stuff, and keeps histories.
+    """
+    use_dfs = field(default=True)
+    nav = field(factory=NavigatorHTML)
+    window_position_page: dict = field(factory=dict) # {page: last_window}
+    links_seen_on_page: dict = field(default={}) # {page: [links]}
+    visited_headings_on_page: dict = field(default={}) # {page: [headings]}
+
+    def __attrs_post_init__(self):
+        self.page_history.append(self.nav.current_page)
+        self.full_page_history.append(self.nav.current_page)
+        self.content_history.append(self.nav.window_text)
+        self.window_position_page[self.nav.current_page] = self.nav.window
+        self.links_seen_on_page[self.nav.current_page] = self.nav.window_links
+        self.visited_headings_on_page[self.nav.current_page] = []
+
+    def update_history_dict(self, dict_to_update: dict, key: str, value):
+        if key not in dict_to_update:
+            if isinstance(value, list):
+                dict_to_update[key] = value
+            else:
+                dict_to_update[key] = [value]
+        else:
+            # if value is a list, extend the list
+            if isinstance(value, list):
+                dict_to_update[key].extend(value)
+            else:
+                dict_to_update[key].append(value)
+        dict_to_update[key] = list(set(dict_to_update[key]))
+
+    def get_current_page(self):
+        return self.nav.current_page
+    
+    def get_links(self, visited_links: List[str] = []):
+        if self.use_dfs:
+            return remove_items_from_list(self.links_seen_on_page[self.nav.current_page], visited_links)
+        else:
+            return self.nav.window_links
+    
+    def get_content(self):
+        if self.use_dfs:
+            return filter_links_from_text(self.nav.window_text, valid_links=self.links_seen_on_page[self.nav.current_page])
+        else:
+            return self.nav.window_text
+
+    def get_headings(self):
+        if self.use_dfs:
+            headings = remove_items_from_list(self.nav.get_headings(), self.visited_headings_on_page[self.nav.current_page])
+            return headings
+        else:
+            return self.nav.window_headings
+
+    def move(self, direction: str):
+        """
+        Move up or down on the page, or to a heading.
+        """
+        assert direction in ["up", "down"] or direction in self.get_headings(), "Invalid direction. Choose either 'up' or 'down' or specific heading."
+        
+        if direction == "down":
+            self.nav.move_down()
+        elif direction == "up":
+            self.nav.move_up()
+        else: # move to heading
+            self.nav.move_heading(direction)
+            # update visited headings
+            self.update_history_dict(self.visited_headings_on_page, self.nav.current_page, direction)
+        
+        # update links seen
+        self.update_history_dict(self.links_seen_on_page, self.nav.current_page, self.nav.window_links)
+        # update window position
+        self.window_position_page[self.nav.current_page] = self.nav.window
+        # update content history
+        self.content_history.append(self.get_content())
+
+    def change_page(self, new_page: str):
+        """
+        Change the current page.
+        """
+        new_page_wikified = wikify_article_name(new_page)
+        assert len(new_page_wikified) > 0, "Page name can't be empty. Choose a different action."
+        assert new_page_wikified in self.links_seen_on_page[self.nav.current_page], f"Link {new_page_wikified} not on current page. Try a different page."
+        # save window position
+        self.window_position_page[self.nav.current_page] = self.nav.window
+
+        self.nav.set_curr_doc(new_page_wikified)
+
+        # update window position
+        self.window_position_page[self.nav.current_page] = self.nav.window
+        # update links seen
+        self.update_history_dict(self.links_seen_on_page, self.nav.current_page, self.nav.window_links)
+        # update page history
+        self.page_history.append(new_page_wikified)
+        self.full_page_history.append(new_page_wikified)
+        self.content_history.append(self.get_content())
+        # update visited headings
+        self.visited_headings_on_page[self.nav.current_page] = [] if self.nav.current_page not in self.visited_headings_on_page else self.visited_headings_on_page[self.nav.current_page]
+    
+    def back(self):
+        """
+        Return to previous page.
+        """
+        if len(self.page_history) > 1:
+            print("back")
+            print(self.page_history)
+            print(self.window_position_page)
+            self.full_page_history.append("<")
+            self.page_history.pop()
+            self.nav.set_curr_doc(self.page_history[-1], self.window_position_page[self.page_history[-1]]['start'])
+
+        else:
+            raise Exception("Cannot go back any further. Choose a different action.")
+
 
 @define
 class WebWikiEnvironment(WikiEnvironment):

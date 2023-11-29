@@ -12,7 +12,7 @@ sys.path.append('../')
 from model_utils import *
 from logger import get_logger
 from utils import *
-from environments import LinkWikiEnviroment, WebWikiEnvironment
+from environments import LinkWikiEnviroment, WebWikiEnvironment, TextWikiEnvironment
 from agents import *
 from batch_handler import BatchHandler
 from models.huggingface_model import *
@@ -278,28 +278,43 @@ def navigate_web(cfg: DictConfig):
     # nav.moveDown()
     # print(nav.getHTML())
 
-def navigate_NavigatorHTML(cfg: DictConfig):
-    current = "Flamingo"
+def navigate_TextWikiEnvironment(cfg: DictConfig):
+    current = "Dove"
     nav = NavigatorHTML(pages_path=cfg.pages_folder, model_name=cfg.model.model_name)
-    nav.set_curr_doc(current)
-    printc(nav.window_text, c='g')
-    printc(nav.window_links, c='b')
-    printc(nav.headings, c='r')
+    nav.set_curr_doc(current, window_start=100)
+    env = TextWikiEnvironment(nav=nav)
+
+
+    printc(f"Current page:{env.get_current_page()}", c="g")
+    printc(f"Current seen links:{env.get_links()}", c="b")
+    printc(f"Current content:{env.get_content()}", c="y")
+    printc(f"Current headings:{env.get_headings()}", c="r")
+    print(env.links_seen_on_page)
+
 
     #interact with the environment
+
+    ###TODO: going back twice doesn't work
     while True:
         action = input("Action: ")
         if action=="moveDown":
-            nav.move_down()
+            env.move("down")
         elif action=="moveUp":
-            nav.move_up()
+            env.move("up")
+        elif action=="back":
+            env.back()
         elif action=="click":
             input_link = input("Link: ")
-            nav.set_curr_doc(input_link)
+            env.change_page(input_link)
+        elif action=="moveHeading":
+            input_heading = input("Heading: ")
+            env.move(input_heading)
+
         print("\n\n")
-        printc([nav.window_text], c='g')
-        printc(nav.window_links, c='b')
-        printc(nav.headings, c='r')
+        printc(f"Current page:{env.get_current_page()}", c="g")
+        printc(f"Current seen links:{env.get_links()}", c="b")
+        printc(f"Current content:{env.get_content()}", c="y")
+        printc(f"Current headings:{env.get_headings()}", c="r")
 
 
 def chat_template():
@@ -314,5 +329,5 @@ def chat_template():
     print(tokenizer.apply_chat_template(chat, tokenize=False))
 
 if __name__ == "__main__":
-    hydra_wrapper(navigate_NavigatorHTML)
+    hydra_wrapper(navigate_TextWikiEnvironment)
     # chat_template()

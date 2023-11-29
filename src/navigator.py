@@ -20,7 +20,7 @@ class NavigatorHTML:
     First implementation of the HTML Navigator.
     Moves from page to page by just transforming html to text.
     """
-    def __init__(self, pages_path, model_name="meta-llama/Llama-2-7b-chat-hf", token_window=300, overlap=0.1):
+    def __init__(self, pages_path, model_name="meta-llama/Llama-2-7b-chat-hf", token_window=300, overlap=0):
         self.pages_path = pages_path
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.current_page = None
@@ -38,32 +38,43 @@ class NavigatorHTML:
         self.html2text_handler.body_width = 0 # Set body width to 0 to avoid line breaks
 
 
-    def get_position(self):
+    def get_scroll_position(self)->tuple:
         """
         Returns the relative position for the middle of the window in the document (in %).
         """
-        position = self.window["end"]- self.token_window/2
-        relative_position = round(position / len(self.tokens) * 100, 2)
-        return relative_position
+        # total number of scrolls 
+        total_scrolls = len(self.tokens)//self.token_window
+        current_scroll = self.window["end"]//self.token_window
+        return current_scroll, total_scrolls
 
-    def set_curr_doc(self, current_page):
+    def extract_headings(self, doc):
+        """
+        Returns all headings of the current page.
+        Each heading is a dict {"text": stripped_heading_text, "raw_text": raw_text, "tag": heading_tag}.
+        """
+        return [{"text": heading.text.strip(), "tag": heading.name} for heading in doc.find_all(["h2", "h3", "h4", "h5", "h6"])]
+    
+    def get_headings(self):
+        return [heading["text"] for heading in self.headings]
+    
+    def set_curr_doc(self, current_page, window_start=0):
         self.current_page = current_page
-        with open(page2href(self.pages_path, current_page), "r", encoding='unicode_escape') as f:
+        with open(page2href(self.pages_path, current_page), "r", encoding='utf-8') as f:
                 doc = BeautifulSoup(f, "html.parser")
 
-        self.headings = [(heading.text.strip(), heading.name) for heading in doc.find_all(["h2", "h3", "h4", "h5", "h6"])]
-        
+        self.headings = self.extract_headings(doc)
+
         body = doc.find("div", {"id" : "bodyContent"})
         if body == None:
            print("No body found !")
         else:
             self.text = self.html2text_handler.handle(str(body))
+            printc(self.text, c='p')
             self.filter_links_from_text()
             self.clean_text()
 
-            printc(self.text, c='p')
             self.tokens = self.tokenizer.encode(self.text)
-            self.window = {"start":0, "end":self.token_window} 
+            self.window = {"start":window_start, "end":self.token_window} 
             self.update_window()
 
     def filter_links_from_text(self):
@@ -144,7 +155,7 @@ class NavigatorHTML:
         else:
             return False
     
-    def move_to_heading(self, heading: tuple):
+    def move_heading(self, heading_text: str):
         """
         Moves the window to the heading if it exists.
         """
@@ -157,20 +168,22 @@ class NavigatorHTML:
         "h5": "#####\t",
         "h6": "######\t"
         }
-        heading_string = markdown_prefix[heading[1]] + heading[0]
+        # find heading with the stripped text == heading_text
+        heading = next((heading for heading in self.headings if heading["text"] == heading_text), None)
+        heading_string = "\n"+markdown_prefix[heading['tag']] + heading['text']
 
         #find the sequence of tokens in self.tokens that corresponds to heading_string
-        heading_encodings = self.tokenizer.encode(heading_string)
-        heading_encodings = heading_encodings[1:-1]
+        heading_encodings = self.tokenizer.encode(heading_string, add_special_tokens=False)[1:]
 
-        # find the first occurrence of the sub-list heading_encodings in self.tokens
-        for i in range(len(self.tokens)):
+        # Search for the first occurrence of the heading_encodings in self.tokens
+        for i in range(len(self.tokens) - len(heading_encodings) + 1):
+            if self.tokens[i:i+len(heading_encodings)] == heading_encodings:
+                # Assuming moving to the heading involves setting an index
+                self.window["start"] = i  # Or any other relevant action
+                self.window["end"] = i + self.token_window
 
-
-        
-
-
-                
+        # Update the window
+        self.update_window()
                 
 class WebNavigatorHTML:
     """

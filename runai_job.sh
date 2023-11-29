@@ -29,4 +29,4 @@ done
 
 #same script but a for loop that runs the same src/run.py for each model
 # command to test batch size
-# python src/run.py --multirun model.device=cuda model.batch_size=2 model.dtype=bfloat16 agent=link_click/lmql_dfs_back_reminder_reason run_name=link_click_reason experiment.override=True experiment.num_agents=5 agent.max_actions=1 agent.fewshot=0,1,2,3,4
+# python src/run.py --multirun model.device=cuda model.batch_size=2 model.dtype=bfloat16 agent=link_click/lmql_dfs_back_reminder_reason experiment.override=True experiment.num_agents=5 agent.max_actions=1 agent.fewshot=0,1,2,3,4
