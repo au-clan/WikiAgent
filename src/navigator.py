@@ -6,6 +6,7 @@ import re
 from utils import printc
 from transformers import AutoTokenizer
 from selenium.webdriver.common.by import By
+from urllib.parse import unquote,quote
 from typing import List, Dict, Tuple
 
 # Custom 
@@ -69,12 +70,10 @@ class NavigatorHTML:
            print("No body found !")
         else:
             self.text = self.html2text_handler.handle(str(body))
-            printc(self.text, c='p')
             self.filter_links_from_text()
             self.clean_text()
-
-            self.tokens = self.tokenizer.encode(self.text)
-            self.window = {"start":window_start, "end":self.token_window} 
+            self.tokens = self.get_tokens()
+            self.window = {"start":window_start, "end":window_start+self.token_window} 
             self.update_window()
 
     def filter_links_from_text(self):
@@ -82,17 +81,24 @@ class NavigatorHTML:
         - Turns links from [ text ]( url.link.htm "name" ) to [text](link)
         - Removes all non Wikipedia links (mostly links to images) from the current window text.
         """
+        # remove image links that are markdown formatted, for example: ![text](../../images/50/5099.jpg.htm "Enlarge")
+        image_link_pattern = r"!\[[^\]]*\]\([^)]*\)"
+        self.text = re.sub(image_link_pattern, "", self.text)
+
         # turn links from [ text ]( url.link.htm "name" ) to [text](link), example: [ fossil record ](../../wp/f/Fossil_record.htm "Fossil record") -> [fossil record](Fossil_record)
         pattern = r"\[\s*([^]\s]+(?:\s+[^]\s]+)*)\s*\]\([^)]*/([^)]+)\.htm[^)]*\)"
-        self.text = re.sub(pattern, r"[\1](\2)", self.text)
 
-        # remove empty links, for example: delete things like [ ](../../images/50/5099.jpg.htm "Enlarge")
+        def replace_with_unquote(match):
+            text = match.group(1)
+            url = unquote(unquote(match.group(2)))
+            return f"[{text}]({url})"
+
+        self.text = re.sub(pattern, replace_with_unquote, self.text)
+
+        # remove empty links
         empty_link_pattern = r"\[\s*\]\([^)]*\)"
         self.text = re.sub(empty_link_pattern, "", self.text)
 
-        # # remove all non Wikipedia links, for example: delete things like [A Caribbean Flamingo \(Phoenicopterus ruber\), with Chilean Flamingos \(P.chilensis\) in the background](../../images/50/5098.jpg)
-        # non_wiki_link_pattern = r"\[\s*([^]]*?)\s*\]\((?!.*wp\/.*\.htm)[^)]*\)"
-        # self.text = re.sub(non_wiki_link_pattern, "", self.text)
 
     def clean_text(self):
         # turn 2 newlines or more into 1 newline
@@ -100,6 +106,38 @@ class NavigatorHTML:
 
         # turn 2 spaces or more into \t
         self.text = re.sub(r" {2,}", "\t", self.text)
+
+    def get_tokens(self) -> List[tuple]:
+        """
+        Breaks the text into a list of strings, where each string stops at a link. This is so that links aren't split when scrolling.
+        Links are formatted like this: [text](link).
+        Output: [(token, type), (token, type), ...]
+        """
+        # Regex pattern to match [text](link)
+        pattern = r"\[[^\]]+\]\([^\)]+\)"
+
+        # Find all matches and save to a list
+        matches = re.findall(pattern, self.text)
+        matches = [{"text":match.strip(), "type":"link"} for match in matches]
+
+        # split the text into chunks, where each chunk stops at a link
+        chunks = re.split(pattern, self.text)
+        chunks = [{"text":chunk.strip(), "type":"text"} for chunk in chunks]
+
+        # interleave the chunks with the links
+        chunks = [chunk for pair in zip(chunks, matches) for chunk in pair]
+
+        # remove empty chunks
+        chunks = [chunk for chunk in chunks if chunk['text'] != ""]
+
+        # tokenize the text chunks
+        for chunk in chunks:
+            chunk["tokens"] = self.tokenizer.encode(chunk["text"], add_special_tokens=False)
+
+        # now turn this into a list of tuples, where each tuple is one single token and its type
+        chunks = [(token, chunk["type"]) for chunk in chunks for token in chunk["tokens"]]
+        return chunks
+
 
     def extract_links_from_window(self) -> List[str]:
         """
@@ -117,7 +155,15 @@ class NavigatorHTML:
         """
         Updae the window text, encodings and links based on the current window.
         """
-        self.window_encodings = self.tokens[self.window["start"] : self.window["end"]]
+        # check if the last token is a link. If it is, extend the window to include the whole link
+        if self.tokens[self.window["end"]-1][1] == "link":
+            # find the index of the next text token
+            next_text_token = next((i for i, token in enumerate(self.tokens[self.window["end"]:]) if token[1] == "text"), None)
+            if next_text_token != None:
+                self.window["end"] += next_text_token
+
+        # get the encodings for the current window
+        self.window_encodings = [token[0] for token in self.tokens[self.window["start"]:self.window["end"]]]
         self.window_text  = self.tokenizer.decode(self.window_encodings, skip_special_tokens=True)
         self.window_links = self.extract_links_from_window()
     
@@ -125,7 +171,7 @@ class NavigatorHTML:
         """
         Moves the window down.
         """
-        self.window["start"] += self.token_window - int(self.token_window * self.overlap)
+        self.window["start"] = self.window["end"] - int(self.token_window * self.overlap)
         self.window["end"] += self.token_window - int(self.token_window * self.overlap)
         if self.window["end"] >= len(self.tokens):
             self.window["start"] = len(self.tokens)-self.token_window
@@ -177,10 +223,16 @@ class NavigatorHTML:
 
         # Search for the first occurrence of the heading_encodings in self.tokens
         for i in range(len(self.tokens) - len(heading_encodings) + 1):
-            if self.tokens[i:i+len(heading_encodings)] == heading_encodings:
-                # Assuming moving to the heading involves setting an index
-                self.window["start"] = i  # Or any other relevant action
+            # if self.tokens[i:i+len(heading_encodings)] == heading_encodings:
+            #     # Assuming moving to the heading involves setting an index
+            #     self.window["start"] = i  # Or any other relevant action
+            #     self.window["end"] = i + self.token_window
+            # update this to work with the new tokens format
+            if [token[0] for token in self.tokens[i:i+len(heading_encodings)]] == heading_encodings:
+                self.window["start"] = i
                 self.window["end"] = i + self.token_window
+                self.update_window()
+                return True
 
         # Update the window
         self.update_window()

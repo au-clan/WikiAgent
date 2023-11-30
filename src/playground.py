@@ -279,9 +279,9 @@ def navigate_web(cfg: DictConfig):
     # print(nav.getHTML())
 
 def navigate_TextWikiEnvironment(cfg: DictConfig):
-    current = "Dove"
+    current = "Flamingo"
     nav = NavigatorHTML(pages_path=cfg.pages_folder, model_name=cfg.model.model_name)
-    nav.set_curr_doc(current, window_start=100)
+    nav.set_curr_doc(current, window_start=600)
     env = TextWikiEnvironment(nav=nav)
 
 

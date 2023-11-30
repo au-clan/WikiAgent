@@ -32,12 +32,12 @@ async def main(cfg: DictConfig):
     for i,path in enumerate(paths_real):
         if cfg.experiment.override:
             path['src'] = cfg.experiment.src; path['tgt'] = cfg.experiment.tgt ###
-        env_kwargs = {"current_page": path["src"], "links_file": cfg.links_file}
+        env_kwargs = {"current_page": path["src"], "links_file": cfg.links_file, "pages_path": cfg.pages_folder}
         agent = instantiate(cfg.agent)
-        agent.initialize_environment(**env_kwargs)
         agent.model_cfg=cfg.model
         agent.model=model
         agent.agent_id = i
+        agent.initialize_environment(**env_kwargs)
         agent.set_tokenizer()
         agent.set_target_page(path["tgt"])
         agents.append(agent)

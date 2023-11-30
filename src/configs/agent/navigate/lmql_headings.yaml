@@ -9,8 +9,8 @@ use_feedback: True
 
 multiturn_demonstrations: True
 
-action_list: ["scroll_down", "back", "click", "move_to"]
-action_list_to_str: {"scroll_down": "scroll_down", "back": "back", "click": "click(article_link)", "move_to": "move_to(section)"}
+action_list: ["scroll_down", "back", "click", "jump_to"]
+action_list_to_str: {"scroll_down": "scroll_down", "back": "back", "click": "click(article_link)", "jump_to": "jump_to(section)"}
 
 agent_description: |-
   You are a helpful assistant that helps the User complete tasks. You should only respond in the JSON format as described below:
@@ -21,7 +21,7 @@ agent_description: |-
 instructions: |
   User wants to go from a source Wikipedia article to a target article in the least amount of clicks.
   User can only click on articles I've already seen by scrolling the page, and the clickable articles are formatted like this in the article content: [article](article_link).
-  User can also scroll down the page to see more content and links, move to a section on the page, or go back to the previous article.
+  User can also scroll down the page to see more content and links, jump to a section on the page, or go back to the previous article.
   For example, if User is on the article for Science and wants to get to the article for Einstein and has seen the link Physics on the page, a good response would be:
   {"thought": "Einstein was a famous physicist, and Physics is a subset of Science. There is a link to Physics on this article, so we should click on it.", "answer": "click(Physics)"}
   To formulate your thought, use your knowledge of the world, the available links, and the current article content. Attention: the user is under a time constraint so you shouldn't spend too much time on a single page.
@@ -31,9 +31,9 @@ user_template: |-
   [top of window]
   {replace[content]}
   [bottom of window]
-  I'm on the Wikipedia article for {replace[src]} and I want to get to the article for {replace[tgt]} in the least amount of clicks. The article links I've already seen in this article and that I can click on are: {replace[links_seen_on_current_page]}.
-  I can also move to the following sections on this article: {replace[headings]}.
-  I have {replace[remaining_scrolls]} scrolls left on this article. I can either: click on a link that will get me closer to the target, scroll down the page, or go back to the previous article: {replace[prev]}. What should I do next? First tell me your thought process. Respond with {replace[actions_str]}.
+  I'm on the Wikipedia article for {replace[src]} and I want to get to the article for {replace[tgt]} in the least amount of clicks. The article links I've already seen in this article and that I can click on are: {replace[links]}.
+  I can also jump to the following sections on this article: {replace[headings]}.
+  I have {replace[remaining_scrolls]} scrolls left on this article. The previous article was: {replace[prev]}. What should I do next? First tell me your thought process. Respond with {replace[actions_str]}.
   
 user_initial_prefix: |
   
@@ -44,7 +44,7 @@ lmql_query_str: |-
   """{{"thought":"[thought]", "next_action": "[next_action]""" where stops_before(thought, 'next_') and next_action in set(action_list)
   if next_action=='click':
       """([link])"}}""" where link in set(links)
-  elif next_action=='move_to':
+  elif next_action=='jump_to':
       """([heading])"}}""" where heading in set(headings)
 
 

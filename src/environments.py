@@ -122,6 +122,7 @@ class TextWikiEnvironment(WikiEnvironment):
     window_position_page: dict = field(factory=dict) # {page: last_window}
     links_seen_on_page: dict = field(default={}) # {page: [links]}
     visited_headings_on_page: dict = field(default={}) # {page: [headings]}
+    visited_links: List[str] = field(factory=list) # links that have been visited
 
     def __attrs_post_init__(self):
         self.page_history.append(self.nav.current_page)
@@ -130,7 +131,12 @@ class TextWikiEnvironment(WikiEnvironment):
         self.window_position_page[self.nav.current_page] = self.nav.window
         self.links_seen_on_page[self.nav.current_page] = self.nav.window_links
         self.visited_headings_on_page[self.nav.current_page] = []
+        self.visited_links.append(self.nav.current_page)
 
+    def get_scroll_position(self):
+        """ Its a tuple of (current_scroll, total_scrolls)"""
+        return self.nav.get_scroll_position()
+    
     def update_history_dict(self, dict_to_update: dict, key: str, value):
         if key not in dict_to_update:
             if isinstance(value, list):
@@ -148,9 +154,9 @@ class TextWikiEnvironment(WikiEnvironment):
     def get_current_page(self):
         return self.nav.current_page
     
-    def get_links(self, visited_links: List[str] = []):
+    def get_links(self):
         if self.use_dfs:
-            return remove_items_from_list(self.links_seen_on_page[self.nav.current_page], visited_links)
+            return remove_items_from_list(self.links_seen_on_page[self.nav.current_page], self.visited_links)
         else:
             return self.nav.window_links
     
@@ -196,10 +202,11 @@ class TextWikiEnvironment(WikiEnvironment):
         new_page_wikified = wikify_article_name(new_page)
         assert len(new_page_wikified) > 0, "Page name can't be empty. Choose a different action."
         assert new_page_wikified in self.links_seen_on_page[self.nav.current_page], f"Link {new_page_wikified} not on current page. Try a different page."
+        
         # save window position
         self.window_position_page[self.nav.current_page] = self.nav.window
 
-        self.nav.set_curr_doc(new_page_wikified)
+        self.nav.set_curr_doc(quote(new_page_wikified))
 
         # update window position
         self.window_position_page[self.nav.current_page] = self.nav.window
@@ -211,17 +218,17 @@ class TextWikiEnvironment(WikiEnvironment):
         self.content_history.append(self.get_content())
         # update visited headings
         self.visited_headings_on_page[self.nav.current_page] = [] if self.nav.current_page not in self.visited_headings_on_page else self.visited_headings_on_page[self.nav.current_page]
+        # update visited links
+        self.visited_links.append(new_page_wikified)
     
     def back(self):
         """
         Return to previous page.
         """
         if len(self.page_history) > 1:
-            print("back")
-            print(self.page_history)
-            print(self.window_position_page)
             self.full_page_history.append("<")
             self.page_history.pop()
+            print(self.page_history[-1], self.window_position_page[self.page_history[-1]]['start'])
             self.nav.set_curr_doc(self.page_history[-1], self.window_position_page[self.page_history[-1]]['start'])
 
         else:

@@ -477,13 +477,12 @@ class LinkClickDFSAgent(LinkClickAgent):
 
 @define
 class WikiTextAgent(BaseWikiAgent):
-    """Still does DFS, but uses the text of the page to make decisions."""
-
+    """
+    Still does DFS, but uses the text of the page to make decisions.
+    """
     action_list: List[str] = field(default=["scroll_down", "click", "back"])
     valid_action_list: List[str] = field(default=["scroll_down", "click", "back"])
     action_list_to_str: dict = field(default={"scroll_down": "scroll_down", "back": "back", "click": "click(article_link)", "move_to": "move_to(section)"})
-    links_seen_on_page: dict = field(default={}) # {page: [links]}
-    visited_headings_on_page: dict = field(default={}) # {page: [headings]}
     clean_prompt_on_click: bool = field(default=True)
 
     default_lmql_query_str = '''lmql
@@ -499,18 +498,17 @@ if next_action=='click':
         return [{}]
     
     def initialize_environment(self, **kwargs):
-        options = webdriver.ChromeOptions()
-        options.add_argument('--headless')
-        options.add_argument('--disable-gpu')  # Necessary for running in headless mode on some systems
-        options.add_argument('--no-sandbox')
-        driver = webdriver.Chrome(options=options)
-        #reading directly from the wpcd folder and there names are url encoded 1 time
-        nav = WebNavigatorHTML(driver, pages=[quote(quote(kwargs['current_page']))], downloads_folder="")
-        env = WebWikiEnvironment(nav=nav, **kwargs)
-        self.environment = env
-        self.source_page = self.environment.current_page
-        self.links_seen_on_page[self.environment.current_page] = []
-        self.visited_headings_on_page[self.environment.current_page] = []
+        # extract navigator arguments from kwargs
+        nav_kwargs = {key: kwargs[key] for key in ['pages_path']}
+        nav_kwargs['model_name'] = self.model_cfg['model_name']
+        nav = NavigatorHTML(**nav_kwargs)
+        nav.set_curr_doc(kwargs['current_page'])
+
+        # extract environment arguments from kwargs
+        env_kwargs = {key: kwargs[key] for key in ['links_file']}
+        env_kwargs['nav'] = nav
+        self.environment = TextWikiEnvironment(**env_kwargs)
+        self.source_page = self.environment.get_current_page()
 
     def get_available_actions_str(self):
         """ Turn the available actions into a str in natural language to fill in user prompt"""
@@ -523,7 +521,7 @@ if next_action=='click':
             else:
                 available_actions_str += f', "{self.action_list_to_str[self.valid_action_list[i]]}"'
         return available_actions_str
-
+    
     def set_valid_actions(self, links, headings):
         self.valid_action_list = self.action_list.copy()
         if len(links) == 0:
@@ -531,47 +529,28 @@ if next_action=='click':
         if len(headings) == 0:
             self.valid_action_list.remove("move_to")
         if self.environment.current_page == self.source_page:
-            self.valid_action_list.remove("back")
+            self.valid_action_list.remove("back")  
 
-    def remove_visited_pages_and_headings(self):
-        self.environment.links = remove_items_from_list(self.environment.links, self.visited_pages)
-        self.environment.headings = remove_items_from_list(self.environment.headings, self.visited_headings_on_page[self.environment.current_page])
-        self.links_seen_on_page[self.environment.current_page] = remove_items_from_list(self.links_seen_on_page[self.environment.current_page], self.visited_pages)
-        self.environment.content = filter_links_from_text(self.environment.content, self.environment.links)
-        
     def observe_environment(self):
-        self.remove_visited_pages_and_headings()
         prev_page = self.environment.page_history[-2] if len(self.environment.page_history) > 1 else "none"
-
-        # Update seen links
-        self.links_seen_on_page[self.environment.current_page].extend(self.environment.links)
-        self.links_seen_on_page[self.environment.current_page] = list(set(self.links_seen_on_page[self.environment.current_page]))
-        links = self.links_seen_on_page[self.environment.current_page]
-        headings = self.environment.headings
-        printc(f"Links: {links}", c="g")
-        printc(f"Headings: {headings}", c="g")
-
-        self.set_valid_actions(links, headings)
+        self.set_valid_actions(self.environment.get_links(), self.environment.get_headings())
         action_list_str = self.get_available_actions_str()
 
         observed_data = {
             "prev": prev_page,
-            "src": self.environment.current_page,
+            "src": self.environment.get_current_page(),
             "tgt": self.target_page,
-            "links": ";".join(self.environment.links),
-            "headings": ";".join(self.environment.headings),
-            "links_seen_on_current_page": ";".join(self.links_seen_on_page[self.environment.current_page]),
-            "content": self.environment.content,
+            "links": ";".join(self.environment.get_links()),
+            "headings": ";".join(self.environment.get_headings()),
+            "content": self.environment.get_content(),
             "actions_str": action_list_str,
             "remaining_actions": f"{self.max_actions - self.num_actions}/{self.max_actions}",
-            "remaining_scrolls": self.environment.position[1] - self.environment.position[0],
+            "remaining_scrolls": self.environment.get_scroll_position()[1] - self.environment.get_scroll_position()[0],
         }
         return observed_data
     
     async def send_query_lmql(self, query):
-        links = self.links_seen_on_current_page
-        headings = self.environment.headings
-        return await query(action_list=self.valid_action_list, links=links, headings=headings, model=self.model)
+        return await query(action_list=self.valid_action_list, links=self.environment.get_links(), headings=self.environment.get_headings(), model=self.model)
         
     def extract_actions_from_lmql_variables(self, variables: dict) -> dict:
         """ Processes the model output and returns a dict with the agent's choices."""
@@ -585,18 +564,140 @@ if next_action=='click':
             # we don't count scrolls as actions, and there's +1 num_actions in the agent.run
             self.num_actions -= 1
         elif actions['next_action'] == "click":
-            self.environment.change_page(actions['link'], links_seen_on_current_page=self.links_seen_on_page[self.environment.current_page])
-            self.visited_pages.append(actions['link'])
-            self.links_seen_on_page[self.environment.current_page] = []
-            self.visited_headings_on_page[self.environment.current_page] = []
+            self.environment.change_page(actions['link'])
             if self.clean_prompt_on_click:
                 #keep only the system message
                 self.prompt = self.prompt[0]
-        elif actions['next_action'] == "move_to":
+        elif actions['next_action'] == "jump_to":
             self.environment.move(actions['heading'])
-            self.visited_headings_on_page[self.environment.current_page].append(actions['heading'])
             # we don't count scrolls as actions, and there's +1 num_actions in the agent.run
             self.num_actions -= 1
         else: # actions['next_action'] == "back":
             self.environment.back()
+
+## Below is the agent that uses WebNavigatorHTML and WebWikiEnvironment, which are deprecated. ##
+# @define
+# class WikiTextAgent(BaseWikiAgent):
+#     """Still does DFS, but uses the text of the page to make decisions."""
+
+#     action_list: List[str] = field(default=["scroll_down", "click", "back"])
+#     valid_action_list: List[str] = field(default=["scroll_down", "click", "back"])
+#     action_list_to_str: dict = field(default={"scroll_down": "scroll_down", "back": "back", "click": "click(article_link)", "move_to": "move_to(section)"})
+#     links_seen_on_page: dict = field(default={}) # {page: [links]}
+#     visited_headings_on_page: dict = field(default={}) # {page: [headings]}
+#     clean_prompt_on_click: bool = field(default=True)
+
+#     default_lmql_query_str = '''lmql
+# sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len=2*{model_cfg[max_len]})
+# """{prompt}"""
+# "Action:\n[next_action]" where stops_before(next_action, '(')
+# if next_action=='click':
+#     "([link])"
+# '''
+#     lmql_query_str: str = field(default=default_lmql_query_str)
+
+#     def _load_fewshot_demonstrations_data(self) -> List[dict]:
+#         return [{}]
+    
+#     def initialize_environment(self, **kwargs):
+#         options = webdriver.ChromeOptions()
+#         options.add_argument('--headless')
+#         options.add_argument('--disable-gpu')  # Necessary for running in headless mode on some systems
+#         options.add_argument('--no-sandbox')
+#         driver = webdriver.Chrome(options=options)
+#         #reading directly from the wpcd folder and there names are url encoded 1 time
+#         nav = WebNavigatorHTML(driver, pages=[quote(quote(kwargs['current_page']))], downloads_folder="")
+#         env = WebWikiEnvironment(nav=nav, **kwargs)
+#         self.environment = env
+#         self.source_page = self.environment.current_page
+#         self.links_seen_on_page[self.environment.current_page] = []
+#         self.visited_headings_on_page[self.environment.current_page] = []
+
+#     def get_available_actions_str(self):
+#         """ Turn the available actions into a str in natural language to fill in user prompt"""
+#         available_actions_str = ""
+#         for i in range(len(self.valid_action_list)):
+#             if i==0:
+#                 available_actions_str += f'"{self.action_list_to_str[self.valid_action_list[i]]}"'
+#             elif i==len(self.valid_action_list)-1:
+#                 available_actions_str += f' or "{self.action_list_to_str[self.valid_action_list[i]]}"'
+#             else:
+#                 available_actions_str += f', "{self.action_list_to_str[self.valid_action_list[i]]}"'
+#         return available_actions_str
+
+#     def set_valid_actions(self, links, headings):
+#         self.valid_action_list = self.action_list.copy()
+#         if len(links) == 0:
+#             self.valid_action_list.remove("click")
+#         if len(headings) == 0:
+#             self.valid_action_list.remove("move_to")
+#         if self.environment.current_page == self.source_page:
+#             self.valid_action_list.remove("back")
+
+#     def remove_visited_pages_and_headings(self):
+#         self.environment.links = remove_items_from_list(self.environment.links, self.visited_pages)
+#         self.environment.headings = remove_items_from_list(self.environment.headings, self.visited_headings_on_page[self.environment.current_page])
+#         self.links_seen_on_page[self.environment.current_page] = remove_items_from_list(self.links_seen_on_page[self.environment.current_page], self.visited_pages)
+#         self.environment.content = filter_links_from_text(self.environment.content, self.environment.links)
+        
+#     def observe_environment(self):
+#         self.remove_visited_pages_and_headings()
+#         prev_page = self.environment.page_history[-2] if len(self.environment.page_history) > 1 else "none"
+
+#         # Update seen links
+#         self.links_seen_on_page[self.environment.current_page].extend(self.environment.links)
+#         self.links_seen_on_page[self.environment.current_page] = list(set(self.links_seen_on_page[self.environment.current_page]))
+#         links = self.links_seen_on_page[self.environment.current_page]
+#         headings = self.environment.headings
+#         printc(f"Links: {links}", c="g")
+#         printc(f"Headings: {headings}", c="g")
+
+#         self.set_valid_actions(links, headings)
+#         action_list_str = self.get_available_actions_str()
+
+#         observed_data = {
+#             "prev": prev_page,
+#             "src": self.environment.current_page,
+#             "tgt": self.target_page,
+#             "links": ";".join(self.environment.links),
+#             "headings": ";".join(self.environment.headings),
+#             "links_seen_on_current_page": ";".join(self.links_seen_on_page[self.environment.current_page]),
+#             "content": self.environment.content,
+#             "actions_str": action_list_str,
+#             "remaining_actions": f"{self.max_actions - self.num_actions}/{self.max_actions}",
+#             "remaining_scrolls": self.environment.position[1] - self.environment.position[0],
+#         }
+#         return observed_data
+    
+#     async def send_query_lmql(self, query):
+#         links = self.links_seen_on_current_page
+#         headings = self.environment.headings
+#         return await query(action_list=self.valid_action_list, links=links, headings=headings, model=self.model)
+        
+#     def extract_actions_from_lmql_variables(self, variables: dict) -> dict:
+#         """ Processes the model output and returns a dict with the agent's choices."""
+#         assert 'next_action' in variables, f"Invalid variables: {variables}"
+#         assert variables['next_action'] in self.action_list, f"Invalid action: {variables['next_action']}"
+#         return variables
+    
+#     def apply_actions(self, actions: dict):
+#         if actions['next_action'] == "scroll_down":
+#             self.environment.move("down")
+#             # we don't count scrolls as actions, and there's +1 num_actions in the agent.run
+#             self.num_actions -= 1
+#         elif actions['next_action'] == "click":
+#             self.environment.change_page(actions['link'], links_seen_on_current_page=self.links_seen_on_page[self.environment.current_page])
+#             self.visited_pages.append(actions['link'])
+#             self.links_seen_on_page[self.environment.current_page] = []
+#             self.visited_headings_on_page[self.environment.current_page] = []
+#             if self.clean_prompt_on_click:
+#                 #keep only the system message
+#                 self.prompt = self.prompt[0]
+#         elif actions['next_action'] == "move_to":
+#             self.environment.move(actions['heading'])
+#             self.visited_headings_on_page[self.environment.current_page].append(actions['heading'])
+#             # we don't count scrolls as actions, and there's +1 num_actions in the agent.run
+#             self.num_actions -= 1
+#         else: # actions['next_action'] == "back":
+#             self.environment.back()
 

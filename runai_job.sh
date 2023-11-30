@@ -13,7 +13,7 @@ for model in "${MODELS[@]}"; do
         --multirun model.device=cuda model.dtype=bfloat16 model.batch_size=2 \
         model="${model}" \
         agent=link_click/lmql_dfs_back_reminder_reason \
-        agent.fewshot=1\
+        agent.fewshot=0\
         run_name="linkclick_reason_${model}" \
         > "linkclick_reason_${model}.log" 2>&1
 done
