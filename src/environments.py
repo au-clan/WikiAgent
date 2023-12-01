@@ -19,12 +19,12 @@ class Environment:
     """
     Virtual environment class. Defines the main interface for the environment.
     """
-    current_page = field(factory=str)
+    current_page: str = field(default=None)
     content = field(default=None)
     page_history = field(factory=list) #this is basically the effective history
     full_page_history = field(factory=list) #this includes backtracks
     content_history = field(factory=list)
-    links = field(factory=list)
+    links: List[str] = field(default=None)
 
     # may or may not be used by subclasses
     links_file = field(default="wikispeedia/wikispeedia_paths-and-graph/links.tsv")
@@ -65,6 +65,16 @@ class WikiEnvironment(Environment):
         self.content_history.append(self.content)
         self._set_links()
 
+    def get_current_page(self):
+        return self.current_page
+    
+    def get_clickable_links(self):
+        return self.links
+
+    def get_links(self):
+        """Returns all links in current article"""
+        return self.links
+    
     def _set_current_page(self, new_page: str):
         self.current_page = wikify_article_name(new_page)
         self._set_content()
@@ -155,6 +165,10 @@ class TextWikiEnvironment(WikiEnvironment):
         return self.nav.current_page
     
     def get_links(self):
+        """Returns all links in current article"""
+        return self.nav.links
+    
+    def get_clickable_links(self):
         if self.use_dfs:
             return remove_items_from_list(self.links_seen_on_page[self.nav.current_page], self.visited_links)
         else:
@@ -230,7 +244,6 @@ class TextWikiEnvironment(WikiEnvironment):
             self.page_history.pop()
             print(self.page_history[-1], self.window_position_page[self.page_history[-1]]['start'])
             self.nav.set_curr_doc(self.page_history[-1], self.window_position_page[self.page_history[-1]]['start'])
-
         else:
             raise Exception("Cannot go back any further. Choose a different action.")
 

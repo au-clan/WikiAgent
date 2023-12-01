@@ -26,6 +26,7 @@ class NavigatorHTML:
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.current_page = None
         self.text = None # Whole document text
+        self.links = None # Links existing in the whole document
         self.tokens = None # Whole document encodings
         self.window = {"start":0, "end":token_window} # Token indices for current window
         self.token_window = token_window # Size of the token window
@@ -70,30 +71,33 @@ class NavigatorHTML:
            print("No body found !")
         else:
             self.text = self.html2text_handler.handle(str(body))
-            self.filter_links_from_text()
+            self.reformat_links_in_text()
             self.clean_text()
+            self.links = self.extract_links_from_text(self.text)
             self.tokens = self.get_tokens()
+            print([(token[0], self.tokenizer.decode(token[0], skip_special_tokens=True)) for token in self.tokens])
             self.window = {"start":window_start, "end":window_start+self.token_window} 
             self.update_window()
 
-    def filter_links_from_text(self):
+    def reformat_links_in_text(self):
         """
         - Turns links from [ text ]( url.link.htm "name" ) to [text](link)
         - Removes all non Wikipedia links (mostly links to images) from the current window text.
         """
         # remove image links that are markdown formatted, for example: ![text](../../images/50/5099.jpg.htm "Enlarge")
         image_link_pattern = r"!\[[^\]]*\]\([^)]*\)"
-        self.text = re.sub(image_link_pattern, "", self.text)
+        self.text = re.sub(image_link_pattern, "", self.text)        
 
-        # turn links from [ text ]( url.link.htm "name" ) to [text](link), example: [ fossil record ](../../wp/f/Fossil_record.htm "Fossil record") -> [fossil record](Fossil_record)
+        # turn links from [ text ]( url.link.htm "name" ) to <a href="link">text</a>
+        #example: [ fossil record ](../../wp/f/Fossil_record.htm "Fossil record") -> <a href="Fossil_record">fossil record</a>
         pattern = r"\[\s*([^]\s]+(?:\s+[^]\s]+)*)\s*\]\([^)]*/([^)]+)\.htm[^)]*\)"
 
-        def replace_with_unquote(match):
+        def replace_with_html(match):
             text = match.group(1)
             url = unquote(unquote(match.group(2)))
-            return f"[{text}]({url})"
+            return f"<a href=\"{url}\">{text}</a>"
 
-        self.text = re.sub(pattern, replace_with_unquote, self.text)
+        self.text = re.sub(pattern, replace_with_html, self.text)
 
         # remove empty links
         empty_link_pattern = r"\[\s*\]\([^)]*\)"
@@ -110,15 +114,18 @@ class NavigatorHTML:
     def get_tokens(self) -> List[tuple]:
         """
         Breaks the text into a list of strings, where each string stops at a link. This is so that links aren't split when scrolling.
-        Links are formatted like this: [text](link).
+        Links are formatted like this: <a href="link">text</a>
         Output: [(token, type), (token, type), ...]
         """
-        # Regex pattern to match [text](link)
-        pattern = r"\[[^\]]+\]\([^\)]+\)"
+        # Regex pattern to match <a href="link">text</a>
+        pattern = r'<a href="[^"]+">[^<]+</a>'
 
-        # Find all matches and save to a list
+
+        # Find all matches and save to a list. We want a list of all <a href="link">text</a> in the text.
         matches = re.findall(pattern, self.text)
         matches = [{"text":match.strip(), "type":"link"} for match in matches]
+        print("matches: ", matches)
+
 
         # split the text into chunks, where each chunk stops at a link
         chunks = re.split(pattern, self.text)
@@ -139,16 +146,16 @@ class NavigatorHTML:
         return chunks
 
 
-    def extract_links_from_window(self) -> List[str]:
+    def extract_links_from_text(self, text: str) -> List[str]:
         """
         Extracts the links from the current window text. Links are formatted like this: [text](link).
         """
-        # links are formatted like this: [text](link), I want to extract the link
-        link_pattern = r"\[\s*[^]]*\s*\]\(([^)]*)\)"
-        links = re.findall(link_pattern, self.window_text)
+        # links are formatted like this: <a href="link">text</a>
+        link_pattern = r"<a href=\"([^\"]+)\">[^<]+</a>"
+        links = re.findall(link_pattern, text)
 
-        # remove links that have .jpg or .png in them
-        links = [link for link in links if ".jpg" not in link and ".png" not in link]
+        # remove bad links
+        links = [link for link in links if ".jpg" not in link and ".png" not in link and ".gif" not in link]
         return links
 
     def update_window(self):
@@ -165,7 +172,7 @@ class NavigatorHTML:
         # get the encodings for the current window
         self.window_encodings = [token[0] for token in self.tokens[self.window["start"]:self.window["end"]]]
         self.window_text  = self.tokenizer.decode(self.window_encodings, skip_special_tokens=True)
-        self.window_links = self.extract_links_from_window()
+        self.window_links = self.extract_links_from_text(self.window_text)
     
     def move_down(self):
         """

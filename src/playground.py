@@ -168,8 +168,6 @@ async def test_run(cfg: DictConfig):
     print(f"Total time taken: {time() - start:.1f} seconds")
     print(f"Average time per action: {(time() - start) / sum([agent.num_actions for agent in agents]):.2f}s for {sum([agent.num_actions for agent in agents])} actions")
 
-
-
 def hydra_wrapper_noasync(func):
     @hydra.main(version_base = None, config_path="configs", config_name="config")
     def wrapper(cfg: DictConfig):
@@ -279,17 +277,16 @@ def navigate_web(cfg: DictConfig):
     # print(nav.getHTML())
 
 def navigate_TextWikiEnvironment(cfg: DictConfig):
-    current = "Flamingo"
+    current = "Eukaryote"
     nav = NavigatorHTML(pages_path=cfg.pages_folder, model_name=cfg.model.model_name)
-    nav.set_curr_doc(current, window_start=600)
+    nav.set_curr_doc(current, window_start=0)
     env = TextWikiEnvironment(nav=nav)
 
-
+    print("All links:", env.get_links())
     printc(f"Current page:{env.get_current_page()}", c="g")
-    printc(f"Current seen links:{env.get_links()}", c="b")
+    printc(f"Current seen links:{env.get_clickable_links()}", c="b")
     printc(f"Current content:{env.get_content()}", c="y")
     printc(f"Current headings:{env.get_headings()}", c="r")
-    print(env.links_seen_on_page)
 
 
     #interact with the environment
@@ -312,7 +309,7 @@ def navigate_TextWikiEnvironment(cfg: DictConfig):
 
         print("\n\n")
         printc(f"Current page:{env.get_current_page()}", c="g")
-        printc(f"Current seen links:{env.get_links()}", c="b")
+        printc(f"Current seen links:{env.get_clickable_links()}", c="b")
         printc(f"Current content:{env.get_content()}", c="y")
         printc(f"Current headings:{env.get_headings()}", c="r")
 

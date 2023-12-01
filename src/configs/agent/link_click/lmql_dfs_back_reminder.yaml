@@ -24,7 +24,7 @@ instructions: |
   ##Output
   You should only respond in the JSON format as described below
   Output format:
-  {"next_page": "<chosen page for user to click on>"}
+  {"next_article": "<chosen page for user to click on>"}
   Ensure the response can be parsed by Python json.loads
 
 user_template: |-

@@ -235,7 +235,7 @@ class Agent:
             feedback: str = None
                 Feedback from the user. If not None, it means the agent made a mistake and needs to be corrected.
         """
-        printc(f"Agent {self.agent_id} on page {self.environment.current_page}, num_actions={self.num_actions}, num_errors={self.num_errors}.", c="r")
+        printc(f"Agent {self.agent_id} on page {self.environment.get_current_page()}, num_actions={self.num_actions}, num_errors={self.num_errors}.", c="r")
         
         # Prepare prompt
         self.build_prompt(feedback)
@@ -254,6 +254,8 @@ class Agent:
         else:
             variables = {"thought": input("Thought: "), "next_action": input("Next action: "), "link": input("Link: "), "heading": input("Heading: ")}
             response = lmql.LMQLResult(prompt=f"{self.prepared_prompt}\nThought: {variables['thought']}\nNext action: {variables['next_action']}", variables=variables)
+            # variables = {"next_page": input("Next page: ")}
+            # response = lmql.LMQLResult(prompt=f"{self.prepared_prompt}\nNext page: {variables['next_page']}", variables=variables)
         extracted_response = response.prompt[len(prepared_prompt):]
         self.full_model_response = response.prompt
         self.prompt.append(AIMessage(extracted_response))
@@ -303,7 +305,7 @@ class BaseWikiAgent(Agent):
         row = {
             'agent_name': self.agent_name,
             'agent_type': self.__class__.__name__,
-            'cur': self.environment.current_page,
+            'cur': self.environment.get_current_page(),
             'src': self.source_page,
             'tgt': self.target_page,
             'response': self.response_history[-1],
@@ -330,7 +332,7 @@ class BaseWikiAgent(Agent):
     
     
     def is_finished(self) -> (bool, str):
-        if self.target_page in self.environment.links:
+        if self.target_page in self.environment.get_links():
             return True, "success"
         elif self.num_actions >= self.max_actions:
             return True, "max_actions"
@@ -414,24 +416,26 @@ sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_
             return dicts[:self.fewshot]
         
     def initialize_environment(self, **kwargs):
-        self.environment = LinkWikiEnviroment(**kwargs)
-        self.source_page = self.environment.current_page
+        # extract env arguments from kwargs
+        env_kwargs = {key: kwargs[key] for key in ['links_file', 'current_page']}
+        self.environment = LinkWikiEnviroment(**env_kwargs)
+        self.source_page = self.environment.get_current_page()
     
     def observe_environment(self):
         prev_page = self.environment.page_history[-2] if len(self.environment.page_history) > 1 else "none"
-        links = self.environment.links
+        links = self.environment.get_links()
 
         observed_data = {
             "prev": prev_page,
-            "src": self.environment.current_page,
+            "src": self.environment.get_current_page(),
             "tgt": self.target_page,
             "links": ";".join([link for link in links]),
         }
         return observed_data
     
     async def send_query_lmql(self, query):
-        links = self.environment.links
-        if self.use_back and "NA" not in links and self.environment.current_page != self.source_page:
+        links = self.environment.get_clickable_links()
+        if self.use_back and "NA" not in links and self.environment.get_current_page() != self.source_page:
             links.append("NA")
         return await query(candidates=links, model=self.model)
     
@@ -462,6 +466,7 @@ class LinkClickDFSAgent(LinkClickAgent):
         return super().__attrs_post_init__()
 
     def observe_environment(self):
+        ###TODO: use env.get_clickable_links() instead of env.links
         self.environment.links = remove_items_from_list(self.environment.links, self.visited_pages)
         return super().observe_environment()
     
@@ -473,7 +478,7 @@ class LinkClickDFSAgent(LinkClickAgent):
             self.environment.back()
         else:
             self.environment.change_page(actions['next_page'])
-            self.visited_pages.append(self.environment.current_page)
+            self.visited_pages.append(self.environment.get_current_page())
 
 @define
 class WikiTextAgent(BaseWikiAgent):
@@ -528,19 +533,19 @@ if next_action=='click':
             self.valid_action_list.remove("click")
         if len(headings) == 0:
             self.valid_action_list.remove("move_to")
-        if self.environment.current_page == self.source_page:
+        if self.environment.get_current_page() == self.source_page:
             self.valid_action_list.remove("back")  
 
     def observe_environment(self):
         prev_page = self.environment.page_history[-2] if len(self.environment.page_history) > 1 else "none"
-        self.set_valid_actions(self.environment.get_links(), self.environment.get_headings())
+        self.set_valid_actions(self.environment.get_clickable_links(), self.environment.get_headings())
         action_list_str = self.get_available_actions_str()
 
         observed_data = {
             "prev": prev_page,
             "src": self.environment.get_current_page(),
             "tgt": self.target_page,
-            "links": ";".join(self.environment.get_links()),
+            "links": ";".join(self.environment.get_clickable_links()),
             "headings": ";".join(self.environment.get_headings()),
             "content": self.environment.get_content(),
             "actions_str": action_list_str,
@@ -550,7 +555,7 @@ if next_action=='click':
         return observed_data
     
     async def send_query_lmql(self, query):
-        return await query(action_list=self.valid_action_list, links=self.environment.get_links(), headings=self.environment.get_headings(), model=self.model)
+        return await query(action_list=self.valid_action_list, links=self.environment.get_clickable_links(), headings=self.environment.get_headings(), model=self.model)
         
     def extract_actions_from_lmql_variables(self, variables: dict) -> dict:
         """ Processes the model output and returns a dict with the agent's choices."""
@@ -574,7 +579,7 @@ if next_action=='click':
             self.num_actions -= 1
         else: # actions['next_action'] == "back":
             self.environment.back()
-
+    
 ## Below is the agent that uses WebNavigatorHTML and WebWikiEnvironment, which are deprecated. ##
 # @define
 # class WikiTextAgent(BaseWikiAgent):
@@ -609,9 +614,9 @@ if next_action=='click':
 #         nav = WebNavigatorHTML(driver, pages=[quote(quote(kwargs['current_page']))], downloads_folder="")
 #         env = WebWikiEnvironment(nav=nav, **kwargs)
 #         self.environment = env
-#         self.source_page = self.environment.current_page
-#         self.links_seen_on_page[self.environment.current_page] = []
-#         self.visited_headings_on_page[self.environment.current_page] = []
+#         self.source_page = self.environment.get_current_page()
+#         self.links_seen_on_page[self.environment.get_current_page()] = []
+#         self.visited_headings_on_page[self.environment.get_current_page()] = []
 
 #     def get_available_actions_str(self):
 #         """ Turn the available actions into a str in natural language to fill in user prompt"""
@@ -631,13 +636,13 @@ if next_action=='click':
 #             self.valid_action_list.remove("click")
 #         if len(headings) == 0:
 #             self.valid_action_list.remove("move_to")
-#         if self.environment.current_page == self.source_page:
+#         if self.environment.get_current_page() == self.source_page:
 #             self.valid_action_list.remove("back")
 
 #     def remove_visited_pages_and_headings(self):
 #         self.environment.links = remove_items_from_list(self.environment.links, self.visited_pages)
-#         self.environment.headings = remove_items_from_list(self.environment.headings, self.visited_headings_on_page[self.environment.current_page])
-#         self.links_seen_on_page[self.environment.current_page] = remove_items_from_list(self.links_seen_on_page[self.environment.current_page], self.visited_pages)
+#         self.environment.headings = remove_items_from_list(self.environment.headings, self.visited_headings_on_page[self.environment.get_current_page()])
+#         self.links_seen_on_page[self.environment.get_current_page()] = remove_items_from_list(self.links_seen_on_page[self.environment.get_current_page()], self.visited_pages)
 #         self.environment.content = filter_links_from_text(self.environment.content, self.environment.links)
         
 #     def observe_environment(self):
@@ -645,9 +650,9 @@ if next_action=='click':
 #         prev_page = self.environment.page_history[-2] if len(self.environment.page_history) > 1 else "none"
 
 #         # Update seen links
-#         self.links_seen_on_page[self.environment.current_page].extend(self.environment.links)
-#         self.links_seen_on_page[self.environment.current_page] = list(set(self.links_seen_on_page[self.environment.current_page]))
-#         links = self.links_seen_on_page[self.environment.current_page]
+#         self.links_seen_on_page[self.environment.get_current_page()].extend(self.environment.links)
+#         self.links_seen_on_page[self.environment.get_current_page()] = list(set(self.links_seen_on_page[self.environment.get_current_page()]))
+#         links = self.links_seen_on_page[self.environment.get_current_page()]
 #         headings = self.environment.headings
 #         printc(f"Links: {links}", c="g")
 #         printc(f"Headings: {headings}", c="g")
@@ -657,11 +662,11 @@ if next_action=='click':
 
 #         observed_data = {
 #             "prev": prev_page,
-#             "src": self.environment.current_page,
+#             "src": self.environment.get_current_page(),
 #             "tgt": self.target_page,
 #             "links": ";".join(self.environment.links),
 #             "headings": ";".join(self.environment.headings),
-#             "links_seen_on_current_page": ";".join(self.links_seen_on_page[self.environment.current_page]),
+#             "links_seen_on_current_page": ";".join(self.links_seen_on_page[self.environment.get_current_page()]),
 #             "content": self.environment.content,
 #             "actions_str": action_list_str,
 #             "remaining_actions": f"{self.max_actions - self.num_actions}/{self.max_actions}",
@@ -686,16 +691,16 @@ if next_action=='click':
 #             # we don't count scrolls as actions, and there's +1 num_actions in the agent.run
 #             self.num_actions -= 1
 #         elif actions['next_action'] == "click":
-#             self.environment.change_page(actions['link'], links_seen_on_current_page=self.links_seen_on_page[self.environment.current_page])
+#             self.environment.change_page(actions['link'], links_seen_on_current_page=self.links_seen_on_page[self.environment.get_current_page()])
 #             self.visited_pages.append(actions['link'])
-#             self.links_seen_on_page[self.environment.current_page] = []
-#             self.visited_headings_on_page[self.environment.current_page] = []
+#             self.links_seen_on_page[self.environment.get_current_page()] = []
+#             self.visited_headings_on_page[self.environment.get_current_page()] = []
 #             if self.clean_prompt_on_click:
 #                 #keep only the system message
 #                 self.prompt = self.prompt[0]
 #         elif actions['next_action'] == "move_to":
 #             self.environment.move(actions['heading'])
-#             self.visited_headings_on_page[self.environment.current_page].append(actions['heading'])
+#             self.visited_headings_on_page[self.environment.get_current_page()].append(actions['heading'])
 #             # we don't count scrolls as actions, and there's +1 num_actions in the agent.run
 #             self.num_actions -= 1
 #         else: # actions['next_action'] == "back":
