@@ -220,7 +220,7 @@ class TextWikiEnvironment(WikiEnvironment):
         # save window position
         self.window_position_page[self.nav.current_page] = self.nav.window
 
-        self.nav.set_curr_doc(quote(new_page_wikified))
+        self.nav.set_curr_doc(new_page_wikified)
 
         # update window position
         self.window_position_page[self.nav.current_page] = self.nav.window

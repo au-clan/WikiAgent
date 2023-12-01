@@ -41,7 +41,7 @@ lmql_query_str: |-
   lmql
   sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len=2*{model_cfg[max_len]})
   """{prompt}"""
-  """{{"thought":"[thought]", "answer": "[next_action]""" where stops_before(thought, '"answer"') and next_action in set(action_list)
+  """{{"thought":"[thought]", "answer": "[next_action]""" where stops_before(thought, 'answer"') and next_action in set(action_list)
   if next_action=='click':
       """([link])"}}""" where link in set(links)
   elif next_action=='jump_to':

@@ -508,7 +508,6 @@ if next_action=='click':
         nav_kwargs['model_name'] = self.model_cfg['model_name']
         nav = NavigatorHTML(**nav_kwargs)
         nav.set_curr_doc(kwargs['current_page'])
-
         # extract environment arguments from kwargs
         env_kwargs = {key: kwargs[key] for key in ['links_file']}
         env_kwargs['nav'] = nav

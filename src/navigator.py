@@ -60,8 +60,9 @@ class NavigatorHTML:
         return [heading["text"] for heading in self.headings]
     
     def set_curr_doc(self, current_page, window_start=0):
-        self.current_page = current_page
-        with open(page2href(self.pages_path, current_page), "r", encoding='utf-8') as f:
+        self.current_page = quote(current_page) # because the htm files are double url encoded
+
+        with open(page2href(self.pages_path, self.current_page), "r", encoding='utf-8') as f:
                 doc = BeautifulSoup(f, "html.parser")
 
         self.headings = self.extract_headings(doc)
@@ -75,7 +76,6 @@ class NavigatorHTML:
             self.clean_text()
             self.links = self.extract_links_from_text(self.text)
             self.tokens = self.get_tokens()
-            print([(token[0], self.tokenizer.decode(token[0], skip_special_tokens=True)) for token in self.tokens])
             self.window = {"start":window_start, "end":window_start+self.token_window} 
             self.update_window()
 
@@ -124,7 +124,6 @@ class NavigatorHTML:
         # Find all matches and save to a list. We want a list of all <a href="link">text</a> in the text.
         matches = re.findall(pattern, self.text)
         matches = [{"text":match.strip(), "type":"link"} for match in matches]
-        print("matches: ", matches)
 
 
         # split the text into chunks, where each chunk stops at a link
@@ -162,6 +161,11 @@ class NavigatorHTML:
         """
         Updae the window text, encodings and links based on the current window.
         """
+        # check if window fits in the document
+        if self.window["end"] > len(self.tokens):
+            self.window["end"] = len(self.tokens)
+            self.window["start"] = self.window["end"] - self.token_window
+
         # check if the last token is a link. If it is, extend the window to include the whole link
         if self.tokens[self.window["end"]-1][1] == "link":
             # find the index of the next text token

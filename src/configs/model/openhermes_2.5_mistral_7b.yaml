@@ -19,7 +19,7 @@ stop: '}'
 
 lmql:
   batch_size: ${..batch_size}
-  #dtype: ${..dtype}
+  dtype: ${..dtype}
   inprocess: False
   load_in_8bit: ${..load_in_8bit}
   load_in_4bit: ${..load_in_4bit}

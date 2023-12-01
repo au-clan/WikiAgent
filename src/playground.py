@@ -277,7 +277,7 @@ def navigate_web(cfg: DictConfig):
     # print(nav.getHTML())
 
 def navigate_TextWikiEnvironment(cfg: DictConfig):
-    current = "Eukaryote"
+    current = "Music"
     nav = NavigatorHTML(pages_path=cfg.pages_folder, model_name=cfg.model.model_name)
     nav.set_curr_doc(current, window_start=0)
     env = TextWikiEnvironment(nav=nav)

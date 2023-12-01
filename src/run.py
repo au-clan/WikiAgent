@@ -5,7 +5,11 @@ import os
 from time import time
 import asyncio
 import torch
+import sys
+### TODO: Change this
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../lmql/src')))
 import lmql
+
 from logger import get_logger
 from utils import get_paths_real_sample
 from agents import *
