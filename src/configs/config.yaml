@@ -1,7 +1,7 @@
 defaults:
   - _self_
   - experiment: agent_test
-  - model: mistral_7b_openorca
+  - model: openhermes_2.5_mistral_7b
   - agent: navigate/lmql_headings
   - hydra: inference
 

@@ -6,8 +6,6 @@ from time import time
 import asyncio
 import torch
 import sys
-### TODO: Change this
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../lmql/src')))
 import lmql
 
 from logger import get_logger
@@ -15,6 +13,7 @@ from utils import get_paths_real_sample
 from agents import *
 import nest_asyncio
 import logging
+from transformers import AutoTokenizer
 
 
 os.environ['HYDRA_FULL_ERROR'] = '1'
@@ -27,12 +26,17 @@ async def main(cfg: DictConfig):
     logger.setLevel(logging.WARNING)
     
     start = time()
+    if cfg.model.lmql['dtype'].lower() == "none":
+        # remove from dict
+        del cfg.model.lmql.dtype
+
     model = lmql.model(f"local:{cfg.model['model_path']}" if cfg.model['model_path'] else f"local:{cfg.model['model_name']}", 
-                        cuda=True if cfg.model['device']=='cuda' else False, 
+                        cuda=True if cfg.model['device']=='cuda' else False,
                         **cfg.model.lmql
                         )
-    paths_real = get_paths_real_sample(n=cfg.experiment.num_agents, paths_real_file=cfg.paths_real_file)
+    paths_real = get_paths_real_sample(n=cfg.experiment.num_agents, paths_real_file=cfg.paths_real_file, experiment=cfg.experiment.experiment)
     agents = []
+    tokenizer = AutoTokenizer.from_pretrained(cfg.model['model_name'])
     for i,path in enumerate(paths_real):
         if cfg.experiment.override:
             path['src'] = cfg.experiment.src; path['tgt'] = cfg.experiment.tgt ###
@@ -42,12 +46,11 @@ async def main(cfg: DictConfig):
         agent.model=model
         agent.agent_id = i
         agent.initialize_environment(**env_kwargs)
-        agent.set_tokenizer()
+        agent.tokenizer = tokenizer
         agent.set_target_page(path["tgt"])
         agents.append(agent)
 
     agent_tasks = [asyncio.create_task(agent.run()) for agent in agents]
-
     try:
         results = await asyncio.gather(*agent_tasks, return_exceptions=False)
         # cancel all tasks

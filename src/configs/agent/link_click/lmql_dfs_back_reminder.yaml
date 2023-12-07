@@ -43,6 +43,6 @@ lmql_query_str: |-
 assistant_prefix: "" # no prefix because this is done in the lmql query function
 user_initial_prefix: ""
 
-demonstrations_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/fewshot_click_demonstrations.tsv
+demonstrations_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/fewshot_click_demonstrations_new.tsv
 agent_runs_file: ${agent_runs_file}
 

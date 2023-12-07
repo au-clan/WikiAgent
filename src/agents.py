@@ -30,6 +30,7 @@ class Agent:
     source_page: str = field(default=None)
     agent_id: int = field(default=0)
     debug: bool = field(default=False)
+    benchmark_mode: bool = field(default=False)
     chat_mode: bool = field(default=False) # if true, the conversation will be kept in the prompt
 
     #features that are common to all agents
@@ -264,7 +265,8 @@ class Agent:
         self.response_history.append(response.variables)
         # Apply actions
         actions = self.extract_actions_from_lmql_variables(response.variables)
-        self.apply_actions(actions)
+        if not self.benchmark_mode:
+            self.apply_actions(actions)
         self.action_history.append(actions)
 
     def is_finished(self):
@@ -303,6 +305,7 @@ class BaseWikiAgent(Agent):
     
     def update_runs_df(self):
         row = {
+            'agent_id': self.agent_id,
             'agent_name': self.agent_name,
             'agent_type': self.__class__.__name__,
             'cur': self.environment.get_current_page(),

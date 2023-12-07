@@ -1,0 +1,6 @@
+num_agents: 500
+experiment: uniform_spl
+override: False
+src: United_States
+tgt: Gold(III)_chloride
+debug_mode: False
