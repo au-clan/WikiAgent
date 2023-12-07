@@ -14,14 +14,30 @@ import yaml
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-def get_paths_real_sample(n=100, paths_real_file='wikispeedia/wikispeedia_paths-and-graph/paths_real_processed.tsv') -> list[dict]:
+def get_paths_real_sample(n=100, paths_real_file='wikispeedia/wikispeedia_paths-and-graph/paths_real_processed.tsv', experiment=None) -> list[dict]:
     """
     Gets a sample of unique paths from the paths_real_processed.tsv file.
     Note: right now returns only the src and tgt pages.
     """
-    paths_real_df = pd.read_csv(paths_real_file, sep='\t')
+    assert experiment in ['uniform_spl', 'human_test_set', None], f"Experiment {experiment} not supported."
 
-    paths_real_sample_df = paths_real_df.groupby(['src', 'tgt']).agg({"shpl": "min", "shepl": "min"}).reset_index().sample(n=n, random_state=42)
+    paths_real_df = pd.read_csv(paths_real_file, sep='\t')
+    paths_real_sample_df = []
+    if experiment == 'uniform_spl':
+        spl_vals = [2,3,4,5,6]
+        n_per_spl = int(n/len(spl_vals))
+        for spl_val in spl_vals:
+            df = paths_real_df.groupby(['src', 'tgt', 'spl']).agg({"shpl": "min", "shepl": "min", 'user_path_rating': 'mean'}).reset_index()
+            paths_real_sample_df.append(df[df["spl"] == spl_val].sample(n=n_per_spl, random_state=42))
+        paths_real_sample_df = pd.concat(paths_real_sample_df)
+    elif experiment == 'human_test_set':
+        # sample uniformly from games where is_path_finished==1 count >=4
+        # paths_real_sample_df = paths_real_df[paths_real_df["is_path_finished"] == 1].groupby(["src", "tgt"]).agg({"is_path_finished": "count", "spl": "min", "mhepl": "min"}).query("is_path_finished >= 4").sample(n=n, random_state=42)
+        df = paths_real_df[paths_real_df["is_path_finished"] == 1].groupby(["src", "tgt"]).agg({"is_path_finished": "count", "spl": "min", "mhepl": "min"}).query("is_path_finished >= 4").reset_index()
+        paths_real_sample_df = df.sample(n=n, random_state=42)
+    else:
+        paths_real_sample_df = paths_real_df.groupby(['src', 'tgt']).agg({"shpl": "min", "shepl": "min"}).reset_index().sample(n=n, random_state=42)
+    
     paths_real_sample = []
     for i, row in paths_real_sample_df.iterrows():
         paths_real_sample.append({"src": row["src"], "tgt": row["tgt"]})
