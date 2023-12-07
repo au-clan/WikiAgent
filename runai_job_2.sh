@@ -3,20 +3,23 @@
 
 
 #set -e # Exit immediately if a command exits with a non-zero status
+export HOME=/dlabdata1/charneca
+source activate ../miniconda3/envs/wikinav #|| { echo "Failed to activate conda environment" > test.log; exit 1; }
 
-source ~/.conda/etc/profile.d/conda.sh #|| { echo "Failed to source conda" > test.log; exit 1; }
-conda activate ../miniconda3/envs/wikinav #|| { echo "Failed to activate conda environment" > test.log; exit 1; }
-
-MODELS=("llama_2_7b_chat_hf" "mistral_7b_instruct" "dolphin_2.2.1_mistral_7b" "mistral_7b_openorca" "openhermes_2.5_mistral_7b") 
+#MODELS=("llama_2_7b_chat_hf" "mistral_7b_instruct" "dolphin_2.2.1_mistral_7b" "mistral_7b_openorca" "openhermes_2.5_mistral_7b") 
+MODELS=("llama_2_7b_chat_hf" "openhermes_2.5_mistral_7b")
 for model in "${MODELS[@]}"; do
     python src/run.py \
         --multirun model.device=cuda model.dtype=bfloat16 model.batch_size=2 \
+        experiment=human_test_set \
         model="${model}" \
-        agent=link_click/lmql_dfs_back_reminder_reason \
-        agent.fewshot=0,1\
-        run_name="linkclick_reason_${model}" \
-        > "linkclick_reason_${model}.log" 2>&1
+        agent=link_click/lmql_dfs_back_reminder_reason_no_example\
+        agent.fewshot=0 \
+        run_name="human_test_set_${model}" \
+        > "human_test_set_no_example_${model}.log" 2>&1
 done
+
+
 
 # python src/run.py \
 #     --multirun model.device=cuda model.batch_size=1 \
