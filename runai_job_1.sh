@@ -8,7 +8,7 @@ source activate ../miniconda3/envs/wikinav #|| { echo "Failed to activate conda 
 #MODELS=("llama_2_7b_chat_hf" "mistral_7b_instruct" "dolphin_2.2.1_mistral_7b" "mistral_7b_openorca" "openhermes_2.5_mistral_7b") 
 model="llama_2_7b_chat_hf"
 python src/run.py \
-    --multirun model.device=cuda model.dtype=bfloat16 model.batch_size=2 \
+    --multirun model.device=cuda model.dtype=bfloat16 model.batch_size=2 +model.lmql.use_flash_attention_2=True\
     experiment=human_test_set \
     model="${model}" \
     agent=link_click/lmql_dfs_back_reminder,link_click/lmql_dfs_back_reminder_reason\

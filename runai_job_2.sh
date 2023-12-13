@@ -7,16 +7,16 @@ export HOME=/dlabdata1/charneca
 source activate ../miniconda3/envs/wikinav #|| { echo "Failed to activate conda environment" > test.log; exit 1; }
 
 #MODELS=("llama_2_7b_chat_hf" "mistral_7b_instruct" "dolphin_2.2.1_mistral_7b" "mistral_7b_openorca" "openhermes_2.5_mistral_7b") 
-MODELS=("llama_2_7b_chat_hf" "openhermes_2.5_mistral_7b")
+MODELS=("openhermes_2.5_mistral_7b")
 for model in "${MODELS[@]}"; do
     python src/run.py \
-        --multirun model.device=cuda model.dtype=bfloat16 model.batch_size=2 \
+        --multirun model.device=cuda model.dtype=bfloat16 model.batch_size=2 +model.lmql.use_flash_attention_2=True\
         experiment=human_test_set \
         model="${model}" \
-        agent=link_click/lmql_dfs_back_reminder_reason_no_example\
+        agent=navigate/lmql_headings_reason \
         agent.fewshot=0 \
-        run_name="human_test_set_${model}" \
-        > "human_test_set_no_example_${model}.log" 2>&1
+        run_name="navigate_${model}" \
+        > "navigate_${model}.log" 2>&1
 done
 
 

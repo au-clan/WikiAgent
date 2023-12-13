@@ -1,5 +1,5 @@
 _target_: agents.WikiTextAgent
-agent_name: navigate/lmql
+agent_name: navigate/lmql_headings
 fewshot: 0
 use_retry: True
 max_tries: 3

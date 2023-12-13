@@ -1,0 +1,6 @@
+num_agents: 200
+override: False
+experiment: random
+src: United_States
+tgt: Gold(III)_chloride
+debug_mode: False

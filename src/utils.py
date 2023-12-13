@@ -19,7 +19,7 @@ def get_paths_real_sample(n=100, paths_real_file='wikispeedia/wikispeedia_paths-
     Gets a sample of unique paths from the paths_real_processed.tsv file.
     Note: right now returns only the src and tgt pages.
     """
-    assert experiment in ['uniform_spl', 'human_test_set', None], f"Experiment {experiment} not supported."
+    assert experiment in ['uniform_spl', 'human_test_set', "random"], f"Experiment {experiment} not supported."
 
     paths_real_df = pd.read_csv(paths_real_file, sep='\t')
     paths_real_sample_df = []

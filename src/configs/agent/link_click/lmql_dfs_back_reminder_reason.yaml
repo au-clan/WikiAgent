@@ -1,6 +1,6 @@
 _target_: agents.LinkClickDFSAgent
-agent_name: link_click/lmql_dfs_back_reminder_reason
-fewshot: 1
+agent_name: link_click/lmql_dfs_back_reminder_reason_no_example
+fewshot: 0
 use_retry: True
 max_tries: 3
 max_actions: 50
@@ -26,9 +26,6 @@ instructions: |
   Output format:
   {"thought": "<your short thought on what the user should do next, in a single line>", "next_article": "<chosen page for user to click on>"}
 
-  For example:
-  Input: {"source": "Animal", "target": "China", "links": "Dog;Biology;Eagle;Amazon_Forest"}
-  Output: {"thought": "China has a very strong connection to the United States, and the mascot for the United States is the Eagle. There is a link to Eagle on this article, so we should click on it.", "next_article": "Eagle"}
 user_template: |-
   {{"source": "{replace[src]}", "target": "{replace[tgt]}", "links": "{replace[links]}"}}
   Remember that I'm currently on the page {replace[src]} and I'm trying to reach the page {replace[tgt]}, in the least number of clicks possible. What article should I click on? Give me your thought process in making that decision. As an absolute last resort option, if no available link takes you closer to the target, select "NA" as the next article.
@@ -40,7 +37,7 @@ lmql_query_str: |-
   lmql
   sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len=2*{model_cfg[max_len]})
   """{prompt}"""
-  """{{"thought":"[thought]", "next_article": "[next_page]"}}""" where (stops_before(thought, '", "') or stops_before(thought, '","')) and next_page in set(candidates)
+  """{{"thought":"[thought]", "next_article": "[next_page]"}}""" where (stops_before(thought, '", "') or stops_before(thought, '","')) and len(TOKENS(thought))<200 and next_page in set(candidates)
 
 assistant_prefix: "" # no prefix because this is done in the lmql query function
 user_initial_prefix: ""

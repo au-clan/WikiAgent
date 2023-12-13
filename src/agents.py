@@ -96,6 +96,9 @@ class Agent:
         """
         raise NotImplementedError("Subclasses must implement the initialize_environment method.")
     
+    def get_num_calls(self):
+        return self.num_actions
+    
     def set_tokenizer(self):
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_cfg['model_name'])
         
@@ -235,16 +238,11 @@ class Agent:
         args:
             feedback: str = None
                 Feedback from the user. If not None, it means the agent made a mistake and needs to be corrected.
-        """
-        printc(f"Agent {self.agent_id} on page {self.environment.get_current_page()}, num_actions={self.num_actions}, num_errors={self.num_errors}.", c="r")
-        
+        """        
         # Prepare prompt
         self.build_prompt(feedback)
         prepared_prompt = prepare_chat(self.tokenizer,self.prompt)
         self.prepared_prompt = prepared_prompt
-        printc(f"Full prompt: {self.prepared_prompt}", c="p")
-        printc(f"Prepared prompt number of tokens: {len(self.tokenizer(prepared_prompt)['input_ids'])}", c="p")
-        # printc(f"Agent {self.agent_id} says: {self.prompt[-1].content}")
         self.user_prompt_history.append(self.prompt[-1].content)
 
         # Send prompt to model
@@ -261,7 +259,10 @@ class Agent:
         self.full_model_response = response.prompt
         self.prompt.append(AIMessage(extracted_response))
         self.raw_response_history.append(extracted_response)
-        printc(f"Agent {self.agent_id} received response. Time in queue: {time() - start} seconds. Response:\n{response.variables}")
+
+        printc(f"Agent {self.agent_id}, cur = {self.environment.get_current_page()}, tgt = {self.target_page}, num_actions = {self.num_actions}, num_errors = {self.num_errors}, tokens_in_prompt = {len(self.tokenizer(prepared_prompt)['input_ids'])}", c="p")
+        printc(f"Received response after {time() - start} seconds in queue: {response.variables}", c="p")
+        
         self.response_history.append(response.variables)
         # Apply actions
         actions = self.extract_actions_from_lmql_variables(response.variables)
@@ -490,8 +491,9 @@ class WikiTextAgent(BaseWikiAgent):
     """
     action_list: List[str] = field(default=["scroll_down", "click", "back"])
     valid_action_list: List[str] = field(default=["scroll_down", "click", "back"])
-    action_list_to_str: dict = field(default={"scroll_down": "scroll_down", "back": "back", "click": "click(article_link)", "move_to": "move_to(section)"})
+    action_list_to_str: dict = field(default={"scroll_down": "scroll_down", "back": "back", "click": "click(article_link)", "jump_to": "jump_to(section)"})
     clean_prompt_on_click: bool = field(default=True)
+    num_calls: int = field(default=0) #total number of calls to LLM
 
     default_lmql_query_str = '''lmql
 sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len=2*{model_cfg[max_len]})
@@ -504,6 +506,9 @@ if next_action=='click':
 
     def _load_fewshot_demonstrations_data(self) -> List[dict]:
         return [{}]
+    
+    def get_num_calls(self):
+        return self.num_calls
     
     def initialize_environment(self, **kwargs):
         # extract navigator arguments from kwargs
@@ -534,7 +539,7 @@ if next_action=='click':
         if len(links) == 0:
             self.valid_action_list.remove("click")
         if len(headings) == 0:
-            self.valid_action_list.remove("move_to")
+            self.valid_action_list.remove("jump_to")
         if self.environment.get_current_page() == self.source_page:
             self.valid_action_list.remove("back")  
 
@@ -557,7 +562,9 @@ if next_action=='click':
         return observed_data
     
     async def send_query_lmql(self, query):
-        return await query(action_list=self.valid_action_list, links=self.environment.get_clickable_links(), headings=self.environment.get_headings(), model=self.model)
+        response = await query(action_list=self.valid_action_list, links=self.environment.get_clickable_links(), headings=self.environment.get_headings(), model=self.model)
+        self.num_calls += 1
+        return response
         
     def extract_actions_from_lmql_variables(self, variables: dict) -> dict:
         """ Processes the model output and returns a dict with the agent's choices."""

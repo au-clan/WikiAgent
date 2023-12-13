@@ -13,7 +13,7 @@ from utils import get_paths_real_sample
 from agents import *
 import nest_asyncio
 import logging
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, BitsAndBytesConfig
 
 
 os.environ['HYDRA_FULL_ERROR'] = '1'
@@ -21,15 +21,11 @@ os.environ['HYDRA_FULL_ERROR'] = '1'
 #log = get_logger()
 
 async def main(cfg: DictConfig):
-    # disable selenium logging
-    logger = logging.getLogger('selenium.webdriver.remote.remote_connection')
-    logger.setLevel(logging.WARNING)
-    
     start = time()
     if cfg.model.lmql['dtype'].lower() == "none":
         # remove from dict
         del cfg.model.lmql.dtype
-
+    
     model = lmql.model(f"local:{cfg.model['model_path']}" if cfg.model['model_path'] else f"local:{cfg.model['model_name']}", 
                         cuda=True if cfg.model['device']=='cuda' else False,
                         **cfg.model.lmql
@@ -61,7 +57,7 @@ async def main(cfg: DictConfig):
         raise e
     torch.cuda.empty_cache()
     print(f"Total time taken: {time() - start:.1f} seconds")
-    print(f"Average time per action: {(time() - start) / sum([agent.num_actions for agent in agents]):.2f}s for {sum([agent.num_actions for agent in agents])} actions")
+    print(f"Average time per model call: {(time() - start) / sum([agent.get_num_calls() for agent in agents]):.2f}s for {sum([agent.get_num_calls() for agent in agents])} calls")
 
 def hydra_wrapper(func):
     @hydra.main(version_base = None, config_path="configs", config_name="config")
