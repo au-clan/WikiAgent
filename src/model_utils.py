@@ -310,6 +310,13 @@ def prepare_chat(tokenizer, chat: List[BaseMessage]) -> str:
     """
     This method prepares the chat for generation.
     """
+    # if gpt in tokenizer name, just concatenate all messages
+    if "gpt" in tokenizer.__class__.__name__.lower():
+        output = ""
+        for msg in chat:
+            output += msg.content + "\n"
+        return output
+    
     if not tokenizer.chat_template:
         tokenizer.chat_template = tokenizer.default_chat_template
         

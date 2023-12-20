@@ -1,5 +1,5 @@
 _target_: agents.LinkClickDFSAgent
-agent_name: link_click/lmql_dfs_back_reminder_reason_no_example
+agent_name: link_click/lmql_dfs_back_reminder_reason
 fewshot: 0
 use_retry: True
 max_tries: 3
@@ -10,11 +10,11 @@ use_feedback: True
 multiturn_demonstrations: True
 
 agent_description: |-
-  Assistant is a expert JSON builder designed to assist the user in completing tasks.
-  {replace[feedback_prefix]}{replace[instructions]}
+  You are a expert JSON builder designed to assist in completing tasks.
+  {replace[instructions]}{replace[feedback_prefix]}
 
 instructions: |
-  User wants to go from a source Wikipedia article to a target article in the least amount of clicks. The User can only click on articles that are linked in the current article. The User can also go back to the previous article by choosing "NA" as the next article.
+  I'm playing a game where, given source and target Wikipedia articles, my goal is to reach the target article starting from the source article in as few clicks as possible. I need to click on the link to the article that will take me closer to the target, **only** from the provided candidates. If no available article takes me closer to the target, I can select select "NA" as the next article to go back to the previous article.
 
   ##Input
   You will be given input in the JSON format as described below
@@ -25,10 +25,11 @@ instructions: |
   You should only respond in the JSON format as described below
   Output format:
   {"thought": "<your short thought on what the user should do next, in a single line>", "next_article": "<chosen page for user to click on>"}
+  Ensure the response can be parsed by Python json.loads
 
 user_template: |-
   {{"source": "{replace[src]}", "target": "{replace[tgt]}", "links": "{replace[links]}"}}
-  Remember that I'm currently on the page {replace[src]} and I'm trying to reach the page {replace[tgt]}, in the least number of clicks possible. What article should I click on? Give me your thought process in making that decision. As an absolute last resort option, if no available link takes you closer to the target, select "NA" as the next article.
+  Remember that I'm currently on the page {replace[src]} and I'm trying to reach the page {replace[tgt]}, in the least number of clicks possible. What article should I click on? If no available link takes you closer to the target, select "NA" as the next page.
   
 demonstration_template: |-
   {{"thought": "{replace[reason]}", "next_article": "{replace[click]}"}}

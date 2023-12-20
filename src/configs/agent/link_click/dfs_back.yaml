@@ -10,11 +10,11 @@ use_feedback: True
 multiturn_demonstrations: True
 
 agent_description: |-
-  Assistant is a expert JSON builder designed to assist the user in playing play the game of Wikispeedia. Assistant is familiar with all Wikipedia pages and can help the user find a path between two Wikipedia articles.
+  You are a expert JSON builder designed to assist in completing tasks.
   {replace[instructions]}{replace[feedback_prefix]}
 
 instructions: |
-  In Wikispeedia, given two Wikipedia articles, a source and a target, your goal is to reach the target article starting from the source article in as few clicks as possible. For the articles given this is always possible. Choose the page that will take the user closer to the target, **only** from the provided candidates. If no available link takes you closer to the target, select "NA" as the next page.
+  I'm playing a game where, given source and target Wikipedia articles, my goal is to reach the target article starting from the source article in as few clicks as possible. I need to click on the link to the article that will take me closer to the target, **only** from the provided candidates. If no available article takes me closer to the target, I can select select "NA" as the next article to go back to the previous article.
 
   ##Input
   You will be given input in the JSON format as described below
@@ -24,20 +24,24 @@ instructions: |
   ##Output
   You should only respond in the JSON format as described below
   Output format:
-  {"next_page": "<chosen page for user to click on>"}
+  {"next_article": "<chosen article for user to click on>"}
   Ensure the response can be parsed by Python json.loads
-
-user_initial_prefix: ""
 
 user_template: |-
   {{"source": "{replace[src]}", "target": "{replace[tgt]}", "links": "{replace[links]}"}}
   
-assistant_prefix: |-
-  {"next_page": "
-
 demonstration_template: |-
-  {{"next_page": "{replace[click]}"}}
+  {{"next_article": "{replace[click]}"}}
 
-demonstrations_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/fewshot_click_demonstrations.tsv
+lmql_query_str: |-
+  lmql
+  sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len=2*{model_cfg[max_len]})
+  """{prompt}"""
+  """{{"next_article": "[next_page]"}}""" where stops_before(next_page, '"') and stops_before(next_page, "\n")
+
+assistant_prefix: "" # no prefix because this is done in the lmql query function
+user_initial_prefix: ""
+
+demonstrations_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/fewshot_click_demonstrations_new.tsv
 agent_runs_file: ${agent_runs_file}
 

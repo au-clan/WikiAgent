@@ -33,7 +33,7 @@ user_template: |-
   [bottom of window]
   I'm on the Wikipedia article for {replace[src]} and I want to get to the article for {replace[tgt]} in the least amount of clicks. The article links I've already seen in this article and that I can click on are: {replace[links]}.
   I can also jump to the following sections on this article: {replace[headings]}.
-  I have {replace[remaining_scrolls]} scrolls left on this article. The previous article was: {replace[prev]}. What should I do next? First tell me your thought process. Respond with {replace[actions_str]}.
+  I have {replace[remaining_scrolls]} scrolls left on this article. The previous article was: {replace[prev]}. What should I do next? Respond with {replace[actions_str]}.
   
 user_initial_prefix: |
   
@@ -46,6 +46,8 @@ lmql_query_str: |-
       """([link])"}}""" where link in set(links)
   elif next_action=='jump_to':
       """([heading])"}}""" where heading in set(headings)
+  else:
+      """"}}"""
 
 
 assistant_prefix: "" # no prefix because this is done in the lmql query function

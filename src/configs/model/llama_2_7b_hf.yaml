@@ -22,5 +22,5 @@ lmql:
   dtype: ${..dtype}
   inprocess: False
   load_in_8bit: ${..load_in_8bit}
-  load_in_4bit: ${..load_in_8bit}
+  load_in_4bit: ${..load_in_4bit}
   use_flash_attention_2: True

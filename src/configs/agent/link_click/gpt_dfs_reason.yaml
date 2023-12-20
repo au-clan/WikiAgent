@@ -1,0 +1,40 @@
+_target_: agents.GPTLinkClickDFSAgent
+agent_name: link_click/gpt_dfs_back_reason
+fewshot: 1
+use_retry: True
+max_tries: 3
+max_actions: 50
+use_back: True
+use_feedback: True
+
+multiturn_demonstrations: True
+
+agent_description: |-
+  You are a expert JSON builder designed to assist in completing tasks.
+
+instructions: |
+  I'm playing a game where, given source and target Wikipedia articles, my goal is to reach the target article starting from the source article in as few clicks as possible. I need to click on the link to the article that will take me closer to the target, **only** from the provided candidates.
+  ##Input
+  You will be given input in the JSON format as described below
+  Input format:
+  {"source": "<source article>", "target": "<target article>", "links": "<outgoing links from current article>"}
+
+  ##Output
+  You should only respond in the JSON format as described below
+  Output format:
+  {"thought": "<your short thought on what the user should do next, in a single line>", "next_article": "<chosen article for user to click on>"}
+  Ensure the response can be parsed by Python json.loads
+
+user_template: |-
+  {{"source": "{replace[src]}", "target": "{replace[tgt]}", "links": "{replace[links]}"}}
+  
+demonstration_template: |-
+  {{"thought": "{replace[reason]}", "next_article": "{replace[click]}"}}
+
+assistant_prefix: "" # no prefix because this is done in the lmql query function
+user_initial_prefix: |-
+  {replace[instructions]}{replace[feedback_prefix]}
+
+demonstrations_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/fewshot_click_demonstrations_new.tsv
+agent_runs_file: ${agent_runs_file}
+

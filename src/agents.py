@@ -7,18 +7,18 @@ from attr import define, field
 import os
 import yaml
 import asyncio
+import json
 from model_utils import SystemMessage, HumanMessage, AIMessage, AIMessagePrefix, BaseMessage, AIMessageCompletion, printc_prompt, prepare_chat
 from transformers import AutoTokenizer
-from models.huggingface_model import preprocess_llama_chat
 from environments import *
-from batch_handler import BatchHandler
 from utils import filter_links_from_text, printc, wikify_article_name, remove_items_from_list
 from time import time
 import pandas as pd
-import json
 from typing import Any, Coroutine, List
 import lmql
-from selenium import webdriver
+import openai
+from pprint import pprint
+
 
 @define
 class Agent:
@@ -200,7 +200,7 @@ class Agent:
             return
     
         
-    def extract_actions_from_lmql_variables(self, variables: dict) -> dict:
+    def extract_actions_from_variables(self, variables: dict) -> dict:
         """ Processes the model output and returns a dict with the agent's choices."""
         raise NotImplementedError("Subclasses must implement the extract_actions method.")
     
@@ -212,7 +212,7 @@ class Agent:
         """ Depends on the agent type."""
         pass
 
-    def get_lmql_query(self):
+    def get_query(self):
         prompt = self.prepared_prompt
         # substitute [ and ] with [[ and ]] to avoid lmql formatting
         prompt = re.sub(r'(?<!\[)\[(?!\[)', '[[', prompt)
@@ -225,14 +225,21 @@ class Agent:
         formatted_query = re.sub(r'(?<!\})\}(?!\})', '}}', formatted_query)
         
         
-        return lmql.query(formatted_query)
+        return lmql.query(formatted_query), formatted_query
     
-    async def send_query_lmql(self, query, **kwargs) -> lmql.LMQLResult:
+    async def send_query(self, query, **kwargs) -> lmql.LMQLResult:
         """Receives the prepared prompt along with other info to fill in prompt and sends it to the model.
         Outputs the response."""
         raise NotImplementedError("Subclasses must implement the query_lmql method.")
-        
+    
+    def extract_response(self, response: lmql.LMQLResult):
+        """ Extracts the response from the model output."""
+        return response.prompt[len(self.prepared_prompt):]
 
+    def get_variables_from_response(self, response: lmql.LMQLResult):
+        """ Extracts the variables from the model output."""
+        return response.variables
+    
     async def act(self, feedback: str = None):
         """ One turn of the agent. -Build prompt; Send prompt to model; Apply actions
         args:
@@ -246,26 +253,26 @@ class Agent:
         self.user_prompt_history.append(self.prompt[-1].content)
 
         # Send prompt to model
-        query = self.get_lmql_query()
+        query,query_str = self.get_query()
         start = time()
         if not self.debug:
-            response = await self.send_query_lmql(query)
+            response = await self.send_query(query)
         else:
-            variables = {"thought": input("Thought: "), "next_action": input("Next action: "), "link": input("Link: "), "heading": input("Heading: ")}
-            response = lmql.LMQLResult(prompt=f"{self.prepared_prompt}\nThought: {variables['thought']}\nNext action: {variables['next_action']}", variables=variables)
-            # variables = {"next_page": input("Next page: ")}
-            # response = lmql.LMQLResult(prompt=f"{self.prepared_prompt}\nNext page: {variables['next_page']}", variables=variables)
-        extracted_response = response.prompt[len(prepared_prompt):]
-        self.full_model_response = response.prompt
+            # variables = {"thought": input("Thought: "), "next_action": input("Next action: "), "link": input("Link: "), "heading": input("Heading: ")}
+            # response = lmql.LMQLResult(prompt=f"{self.prepared_prompt}\nThought: {variables['thought']}\nNext action: {variables['next_action']}", variables=variables)
+            variables = {"next_page": input("Next page: ")}
+            response = lmql.LMQLResult(prompt=f"{self.prepared_prompt}Assistant: {{\"next_article\": \"{variables['next_page']}\"}}", variables=variables)
+        extracted_response = self.extract_response(response)
+
         self.prompt.append(AIMessage(extracted_response))
         self.raw_response_history.append(extracted_response)
-
-        printc(f"Agent {self.agent_id}, cur = {self.environment.get_current_page()}, tgt = {self.target_page}, num_actions = {self.num_actions}, num_errors = {self.num_errors}, tokens_in_prompt = {len(self.tokenizer(prepared_prompt)['input_ids'])}", c="p")
-        printc(f"Received response after {time() - start} seconds in queue: {response.variables}", c="p")
+        printc(f"Agent {self.agent_id}, cur = {self.environment.get_current_page()}, tgt = {self.target_page}, num_actions = {self.num_actions}, num_errors = {self.num_errors}, tokens_in_prompt = {len(self.tokenizer(prepared_prompt)['input_ids'])}", c="r")
+        printc(f"PROMPT: {self.prepared_prompt}", c="p")
+        printc(f"Received response after {time() - start} seconds in queue: {extracted_response}", c="r")
         
-        self.response_history.append(response.variables)
+        self.response_history.append(self.get_variables_from_response(response))
         # Apply actions
-        actions = self.extract_actions_from_lmql_variables(response.variables)
+        actions = self.extract_actions_from_variables(self.get_variables_from_response(response))
         if not self.benchmark_mode:
             self.apply_actions(actions)
         self.action_history.append(actions)
@@ -372,7 +379,7 @@ class BaseWikiAgent(Agent):
 
         finished, reason = self.is_finished()
         if reason=='success':
-            printc(f"Agent {self.agent_id} reached the target page {self.target_page} in {self.num_actions} actions.", c="g")
+            printc(f"Agent {self.agent_id} reached the target page {self.target_page} in {self.num_actions} actions. Effective path: {';'.join(self.environment.page_history)}", c="g")
             return True
         else:
             printc(f"Agent {self.agent_id} failed to reach the target page {self.target_page} because of {reason}.", c="r")
@@ -437,17 +444,19 @@ sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_
         }
         return observed_data
     
-    async def send_query_lmql(self, query):
+    async def send_query(self, query):
         links = self.environment.get_clickable_links()
         if self.use_back and "NA" not in links and self.environment.get_current_page() != self.source_page:
             links.append("NA")
         return await query(candidates=links, model=self.model)
     
-    def extract_actions_from_lmql_variables(self, variables: dict) -> dict:
+    def extract_actions_from_variables(self, variables: dict) -> dict:
         """ Processes the model output and returns a dict with the agent's choices."""
         actions = {}
         if 'next_page' in variables:
             actions['next_page'] = variables['next_page']
+        elif 'next_article' in variables:
+            actions['next_page'] = variables['next_article']
         else:
             raise AssertionError(f"Invalid action: {variables}")
         return actions
@@ -485,6 +494,44 @@ class LinkClickDFSAgent(LinkClickAgent):
             self.visited_pages.append(self.environment.get_current_page())
 
 @define
+class GPTLinkClickDFSAgent(LinkClickDFSAgent):
+    """
+    Same as LinkClickDFSAgent, but uses OpenAI API instead of LMQL.
+    """
+    client = field(default=None)
+
+    def __attrs_post_init__(self):
+        self.client = openai.AsyncOpenAI()
+        return super().__attrs_post_init__()
+    
+    def get_query(self):
+        return [msg.prepare_for_generation() for msg in self.prompt], None
+    
+    async def send_query(self, query):
+        return await self.client.chat.completions.create(
+            seed=42,
+            model=self.model_cfg['model_name'],
+            response_format={"type": "json_object"},
+            messages=query,
+            temperature=self.model_cfg['temperature'],
+            top_p=self.model_cfg['top_p'],
+            max_tokens=200,
+        )
+    def extract_response(self, response):
+        return response.choices[0].message.content
+    
+    def get_variables_from_response(self, response):
+        """ Returns the OpenAI output JSON as a dict"""
+        return json.loads(response.choices[0].message.content)
+        
+    
+
+
+    
+    
+
+
+@define
 class WikiTextAgent(BaseWikiAgent):
     """
     Still does DFS, but uses the text of the page to make decisions.
@@ -494,6 +541,7 @@ class WikiTextAgent(BaseWikiAgent):
     action_list_to_str: dict = field(default={"scroll_down": "scroll_down", "back": "back", "click": "click(article_link)", "jump_to": "jump_to(section)"})
     clean_prompt_on_click: bool = field(default=True)
     num_calls: int = field(default=0) #total number of calls to LLM
+    window_size: int = field(default=500) #number of tokens in the page to show in prompt
 
     default_lmql_query_str = '''lmql
 sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len=2*{model_cfg[max_len]})
@@ -514,6 +562,7 @@ if next_action=='click':
         # extract navigator arguments from kwargs
         nav_kwargs = {key: kwargs[key] for key in ['pages_path']}
         nav_kwargs['model_name'] = self.model_cfg['model_name']
+        nav_kwargs['token_window'] = self.window_size
         nav = NavigatorHTML(**nav_kwargs)
         nav.set_curr_doc(kwargs['current_page'])
         # extract environment arguments from kwargs
@@ -534,18 +583,20 @@ if next_action=='click':
                 available_actions_str += f', "{self.action_list_to_str[self.valid_action_list[i]]}"'
         return available_actions_str
     
-    def set_valid_actions(self, links, headings):
+    def set_valid_actions(self, links, headings, scrolls_left):
         self.valid_action_list = self.action_list.copy()
-        if len(links) == 0:
+        if scrolls_left == 0 and "scroll_down" in self.valid_action_list:
+            self.valid_action_list.remove("scroll_down")
+        if len(links) == 0 and "click" in self.valid_action_list:
             self.valid_action_list.remove("click")
-        if len(headings) == 0:
+        if len(headings) == 0 and "jump_to" in self.valid_action_list:
             self.valid_action_list.remove("jump_to")
-        if self.environment.get_current_page() == self.source_page:
+        if self.environment.get_current_page() == self.source_page and "back" in self.valid_action_list:
             self.valid_action_list.remove("back")  
 
     def observe_environment(self):
         prev_page = self.environment.page_history[-2] if len(self.environment.page_history) > 1 else "none"
-        self.set_valid_actions(self.environment.get_clickable_links(), self.environment.get_headings())
+        self.set_valid_actions(self.environment.get_clickable_links(), self.environment.get_headings(), self.environment.get_scroll_position()[1] - self.environment.get_scroll_position()[0])
         action_list_str = self.get_available_actions_str()
 
         observed_data = {
@@ -561,12 +612,12 @@ if next_action=='click':
         }
         return observed_data
     
-    async def send_query_lmql(self, query):
+    async def send_query(self, query):
         response = await query(action_list=self.valid_action_list, links=self.environment.get_clickable_links(), headings=self.environment.get_headings(), model=self.model)
         self.num_calls += 1
         return response
         
-    def extract_actions_from_lmql_variables(self, variables: dict) -> dict:
+    def extract_actions_from_variables(self, variables: dict) -> dict:
         """ Processes the model output and returns a dict with the agent's choices."""
         assert 'next_action' in variables, f"Invalid variables: {variables}"
         assert variables['next_action'] in self.action_list, f"Invalid action: {variables['next_action']}"

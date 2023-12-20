@@ -82,11 +82,11 @@ class WikiEnvironment(Environment):
 
     def change_page(self, new_page: str, links_seen_on_current_page: List[str] = None, **kwargs):
         wikified_new_page = wikify_article_name(new_page)
-        assert len(wikified_new_page) > 0, "Page name can't be empty. Choose a different action."
+        assert len(wikified_new_page) > 0, "Error: Page name can't be empty. Choose a different action."
         if not links_seen_on_current_page:
-            assert wikified_new_page in self.links, f"Link {wikified_new_page} not on current page. Try a different page."
+            assert wikified_new_page in self.links, f"Error: Link {wikified_new_page} not on current page. Try a different page."
         else:
-            assert wikified_new_page in links_seen_on_current_page, f"Link {wikified_new_page} not on current page. Try a different page."
+            assert wikified_new_page in links_seen_on_current_page, f"Error: Link {wikified_new_page} not on current page. Try a different page."
             
         self.page_history.append(wikified_new_page)
         self.full_page_history.append(wikified_new_page)
@@ -103,7 +103,7 @@ class WikiEnvironment(Environment):
             self.content_history.pop()
             self._set_current_page(self.page_history[-1])
         else:
-            raise Exception("Cannot go back any further. Choose a different action.")
+            raise Exception("Error: Cannot go back any further. Choose a different action.")
 
     
 @define
@@ -116,7 +116,7 @@ class LinkWikiEnviroment(WikiEnvironment):
         This depends on the type of environment
         """
         all_links = load_links(self.links_file)
-        assert self.current_page in all_links, f"Invalid page {self.current_page}."
+        assert self.current_page in all_links, f"Error: Invalid page {self.current_page}."
         self.links = all_links[self.current_page]
 
     def _set_content(self):
@@ -242,10 +242,9 @@ class TextWikiEnvironment(WikiEnvironment):
         if len(self.page_history) > 1:
             self.full_page_history.append("<")
             self.page_history.pop()
-            print(self.page_history[-1], self.window_position_page[self.page_history[-1]]['start'])
             self.nav.set_curr_doc(self.page_history[-1], self.window_position_page[self.page_history[-1]]['start'])
         else:
-            raise Exception("Cannot go back any further. Choose a different action.")
+            raise Exception("Error: Cannot go back any further. Choose a different action.")
 
 
 @define
@@ -304,7 +303,6 @@ class WebWikiEnvironment(WikiEnvironment):
             raise Exception("Invalid direction. Choose either 'up' or 'down' or specific heading.")
         self._set_content()
         self._set_links()
-        print(self.links)###
         self._set_position()
         self.content_history.append(self.content)
 
@@ -318,10 +316,9 @@ class WebWikiEnvironment(WikiEnvironment):
             self.page_history.pop()
             #self.content_history.pop()
             self.nav.moveBack()
-            printc(self.nav.getText(), c='g')
             self._set_current_page(self.page_history[-1])
         else:
-            raise Exception("Cannot go back any further. Choose a different action.")
+            raise Exception("Error: Cannot go back any further. Choose a different action.")
     
     def change_env(self, agent_id):
         """

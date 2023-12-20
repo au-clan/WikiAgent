@@ -10,11 +10,11 @@ use_feedback: True
 multiturn_demonstrations: True
 
 agent_description: |-
-  Assistant is a expert JSON builder designed to assist the user in completing tasks.
+  You are a expert JSON builder designed to assist in completing tasks.
   {replace[instructions]}{replace[feedback_prefix]}
 
 instructions: |
-  I'm playing a game where, given source and target Wikipedia articles, my goal is to reach the target article starting from the source article in as few clicks as possible. I need to click on the link to the article that will take the user closer to the target, **only** from the provided candidates. If no available article takes me closer to the target, I can select select "NA" as the next article.
+  I'm playing a game where, given source and target Wikipedia articles, my goal is to reach the target article starting from the source article in as few clicks as possible. I need to click on the link to the article that will take me closer to the target, **only** from the provided candidates. If no available article takes me closer to the target, I can select select "NA" as the next article to go back to the previous article.
 
   ##Input
   You will be given input in the JSON format as described below

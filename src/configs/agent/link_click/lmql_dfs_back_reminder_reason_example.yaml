@@ -1,5 +1,5 @@
 _target_: agents.LinkClickDFSAgent
-agent_name: link_click/lmql_dfs_back_reminder_reason
+agent_name: link_click/lmql_dfs_back_reminder_reason_example
 fewshot: 1
 use_retry: True
 max_tries: 3

@@ -12,7 +12,8 @@ python src/run.py \
     --multirun model.batch_size=1\
     experiment=random \
     model=llama_2_13b_chat_hf \
-    agent=link_click/lmql_dfs_back_reminder,link_click/lmql_dfs_back_reminder_reason \
-    agent.fewshot=0,1,2,3 \
+    agent=link_click/lmql_dfs_back,link_click/lmql_dfs_back_reason \
+    agent.fewshot=2 \
+    model.temperature=0.2,0.5,1,1.5 \
     run_name="${filename}" \
-    > "${filename}.log" 2>&1
+    > "scripts/${filename}.log" 2>&1
