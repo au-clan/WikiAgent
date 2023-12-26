@@ -9,7 +9,7 @@ source activate ../miniconda3/envs/wikinav #|| { echo "Failed to activate conda 
 filename=$(basename -- "$0"); extension="${filename##*.}"; filename="${filename%.*}"
 
 python src/run.py \
-    --multirun model.batch_size=3\
+    --multirun model.batch_size=1\
     experiment=random \
     model=llama_2_13b_chat_hf \
     agent=link_click/lmql_dfs_back,link_click/lmql_dfs_back_reason \

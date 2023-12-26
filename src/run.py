@@ -38,7 +38,7 @@ async def main(cfg: DictConfig):
         model = None
         tokenizer = AutoTokenizer.from_pretrained("gpt2")
 
-    paths_real = get_paths_real_sample(n=cfg.experiment.num_agents, paths_real_file=cfg.paths_real_file, experiment=cfg.experiment.experiment)
+    paths_real = get_paths_real_sample(n=cfg.experiment.num_agents, paths_real_file=cfg.paths_real_file, experiment=cfg.experiment.experiment, agent_batch_size=cfg.experiment.agent_batch_size, agent_batch_id=cfg.experiment.agent_batch_id)
     agents = []
 
     for i,path in enumerate(paths_real):
@@ -48,7 +48,7 @@ async def main(cfg: DictConfig):
         agent = instantiate(cfg.agent)
         agent.model_cfg=cfg.model
         agent.model=model
-        agent.agent_id = i
+        agent.agent_id = i + cfg.experiment.agent_batch_id * cfg.experiment.agent_batch_size
         agent.initialize_environment(**env_kwargs)
         agent.tokenizer = tokenizer
         agent.set_target_page(path["tgt"])
@@ -57,15 +57,15 @@ async def main(cfg: DictConfig):
     # in case we want to select a specific agent
     if cfg.experiment.agent_id >= 0:
         agents = [agents[cfg.experiment.agent_id]]
+    
+    # restarts unfinished agents from agent_runs_df.tsv file
+    if cfg.restart_from_agents_file != "" and cfg.restart_from_agents_file != None:
+        # load agents from file
+        agent_runs_df = pd.read_csv(cfg.restart_from_agents_file, sep='\t')
+        agent_ids_list = agent_runs_df.groupby('agent_id').agg({'num_actions': 'last', 'is_finished_reason': 'last'}).reset_index().query('is_finished_reason == "none"')['agent_id'].tolist()
+        agents = [agents[agent_id] for agent_id in agent_ids_list]
 
-    # agent_tasks = [asyncio.create_task(agent.run()) for agent in agents]
-    # try:
-    #     results = await asyncio.gather(*agent_tasks, return_exceptions=False)
-    #     # cancel all tasks
-    #     for task in agent_tasks:
-    #         task.cancel()
-    # except Exception as e:
-    #     raise e
+
     results = []
     
     if "agent_batch_size" in cfg.experiment and cfg.experiment.agent_batch_size > 0:

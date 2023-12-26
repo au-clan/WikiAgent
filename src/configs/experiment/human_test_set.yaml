@@ -1,5 +1,8 @@
-num_agents: 200
+num_agents: 1914
 experiment: human_test_set
+agent_batch_id: 0
+agent_batch_size: 319
+agent_id: -1
 override: False
 src: United_States
 tgt: Gold(III)_chloride

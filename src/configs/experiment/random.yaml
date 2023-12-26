@@ -1,4 +1,6 @@
 num_agents: 200
+agent_batch_id: 0
+agent_batch_size: 200
 agent_id: -1
 override: False
 experiment: random

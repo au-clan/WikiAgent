@@ -54,7 +54,7 @@ class NavigatorHTML:
         Returns all headings of the current page.
         Each heading is a dict {"text": stripped_heading_text, "raw_text": raw_text, "tag": heading_tag}.
         """
-        return [{"text": heading.text.strip(), "tag": heading.name} for heading in doc.find_all(["h2", "h3", "h4", "h5", "h6"])]
+        return [{"text": heading.text.strip(), "tag": heading.name} for heading in doc.find_all(["h2", "h3"])]
     
     def get_headings(self):
         return [heading["text"] for heading in self.headings]

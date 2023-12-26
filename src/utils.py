@@ -14,12 +14,15 @@ import yaml
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-def get_paths_real_sample(n=100, paths_real_file='wikispeedia/wikispeedia_paths-and-graph/paths_real_processed.tsv', experiment=None) -> list[dict]:
+def get_paths_real_sample(n=200, agent_batch_size=200, agent_batch_id=0 , paths_real_file='wikispeedia/wikispeedia_paths-and-graph/paths_real_processed.tsv', experiment=None) -> list[dict]:
     """
     Gets a sample of unique paths from the paths_real_processed.tsv file.
     Note: right now returns only the src and tgt pages.
     """
     assert experiment in ['uniform_spl', 'human_test_set', "random"], f"Experiment {experiment} not supported."
+    assert agent_batch_size >= 0, f"agent_batch_size must be >= 0, got {agent_batch_size}"
+    assert agent_batch_id >= 0, f"agent_batch_id must be >= 0, got {agent_batch_id}"
+    assert agent_batch_id < n/agent_batch_size, f"agent_batch_id must be < n/agent_batch_size, got {agent_batch_id} and {n/agent_batch_size}"
 
     paths_real_df = pd.read_csv(paths_real_file, sep='\t')
     paths_real_sample_df = []
@@ -41,6 +44,11 @@ def get_paths_real_sample(n=100, paths_real_file='wikispeedia/wikispeedia_paths-
     paths_real_sample = []
     for i, row in paths_real_sample_df.iterrows():
         paths_real_sample.append({"src": row["src"], "tgt": row["tgt"]})
+    
+    # now select only the agents that are in the current agent_batch_id
+    if agent_batch_size > 0:
+        paths_real_sample = paths_real_sample[agent_batch_id*agent_batch_size:(agent_batch_id+1)*agent_batch_size]
+    
     return paths_real_sample
 
 def effective_path(path_str: str) -> str:

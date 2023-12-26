@@ -66,6 +66,7 @@ class Agent:
     raw_response_history = field(factory=list) # without assistant prefix
     action_history = field(factory=list)
     agent_runs_file: str = field(default=None) #should be hydra
+    verbose: bool = field(default=False)
 
     # for LMQL
     model: lmql.model = field(default=None)
@@ -218,6 +219,8 @@ class Agent:
         prompt = re.sub(r'(?<!\[)\[(?!\[)', '[[', prompt)
         prompt = re.sub(r'(?<!\])\](?!\])', ']]', prompt)
         prompt = prompt.replace("\n", "\\n")
+        prompt = prompt.replace('{{{', '') # remove triple brackets
+        prompt = prompt.replace('}}}', '')
 
         formatted_query = self.lmql_query_str.format(prompt=prompt, model_cfg=self.model_cfg)
         # because lmql formats the query again, we have to turn single occurrences of { into {{ and } into }}
@@ -250,6 +253,7 @@ class Agent:
         self.build_prompt(feedback)
         prepared_prompt = prepare_chat(self.tokenizer,self.prompt)
         self.prepared_prompt = prepared_prompt
+        if self.verbose: printc(f"Agent {self.agent_id}\nPROMPT: {self.prepared_prompt}", c="p")
         self.user_prompt_history.append(self.prompt[-1].content)
 
         # Send prompt to model
@@ -258,16 +262,16 @@ class Agent:
         if not self.debug:
             response = await self.send_query(query)
         else:
-            # variables = {"thought": input("Thought: "), "next_action": input("Next action: "), "link": input("Link: "), "heading": input("Heading: ")}
-            # response = lmql.LMQLResult(prompt=f"{self.prepared_prompt}\nThought: {variables['thought']}\nNext action: {variables['next_action']}", variables=variables)
-            variables = {"next_page": input("Next page: ")}
-            response = lmql.LMQLResult(prompt=f"{self.prepared_prompt}Assistant: {{\"next_article\": \"{variables['next_page']}\"}}", variables=variables)
+            variables = {"thought": input("Thought: "), "next_action": input("Next action: "), "link": input("Link: "), "heading": input("Heading: ")}
+            response = lmql.LMQLResult(prompt=f"{self.prepared_prompt}\nThought: {variables['thought']}\nNext action: {variables['next_action']}", variables=variables)
+            # variables = {"next_page": input("Next page: ")}
+            # response = lmql.LMQLResult(prompt=f"{self.prepared_prompt}Assistant: {{\"next_article\": \"{variables['next_page']}\"}}", variables=variables)
         extracted_response = self.extract_response(response)
 
         self.prompt.append(AIMessage(extracted_response))
         self.raw_response_history.append(extracted_response)
+
         printc(f"Agent {self.agent_id}, cur = {self.environment.get_current_page()}, tgt = {self.target_page}, num_actions = {self.num_actions}, num_errors = {self.num_errors}, tokens_in_prompt = {len(self.tokenizer(prepared_prompt)['input_ids'])}", c="r")
-        printc(f"PROMPT: {self.prepared_prompt}", c="p")
         printc(f"Received response after {time() - start} seconds in queue: {extracted_response}", c="r")
         
         self.response_history.append(self.get_variables_from_response(response))
@@ -576,11 +580,11 @@ if next_action=='click':
         available_actions_str = ""
         for i in range(len(self.valid_action_list)):
             if i==0:
-                available_actions_str += f'"{self.action_list_to_str[self.valid_action_list[i]]}"'
+                available_actions_str += f"{self.action_list_to_str[self.valid_action_list[i]]}"
             elif i==len(self.valid_action_list)-1:
-                available_actions_str += f' or "{self.action_list_to_str[self.valid_action_list[i]]}"'
+                available_actions_str += f" or {self.action_list_to_str[self.valid_action_list[i]]}"
             else:
-                available_actions_str += f', "{self.action_list_to_str[self.valid_action_list[i]]}"'
+                available_actions_str += f", {self.action_list_to_str[self.valid_action_list[i]]}"
         return available_actions_str
     
     def set_valid_actions(self, links, headings, scrolls_left):
@@ -601,8 +605,8 @@ if next_action=='click':
 
         observed_data = {
             "prev": prev_page,
-            "src": self.environment.get_current_page(),
-            "tgt": self.target_page,
+            "src": unquote(unquote(self.environment.get_current_page())),
+            "tgt": unquote(unquote(self.target_page)),
             "links": ";".join(self.environment.get_clickable_links()),
             "headings": ";".join(self.environment.get_headings()),
             "content": self.environment.get_content(),

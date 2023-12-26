@@ -1,5 +1,5 @@
 _target_: agents.GPTLinkClickDFSAgent
-agent_name: link_click/gpt_dfs_back_reminder
+agent_name: link_click/gpt_dfs
 fewshot: 1
 use_retry: True
 max_tries: 3

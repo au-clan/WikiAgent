@@ -17,6 +17,7 @@ agent_runs_file: ${hydra:runtime.output_dir}/agent_runs.tsv
 paths_real_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/paths_real_processed.tsv
 links_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/links.tsv
 pages_folder: ${data_dir}/wpcd/wp/
+restart_from_agents_file: ""
 
 # determines the log directory's parent folder
 experiment_name: inference

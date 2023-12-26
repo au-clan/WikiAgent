@@ -1,0 +1,58 @@
+_target_: agents.WikiTextAgent
+agent_name: navigate/lmql_headings_nlang
+fewshot: 0
+use_retry: True
+max_tries: 3
+max_actions: 50
+use_back: True
+use_feedback: True
+
+multiturn_demonstrations: True
+
+action_list: ["scroll_down", "back", "click", "jump_to"]
+action_list_to_str: {"scroll_down": "scroll_down", "back": "back", "click": "click(article_link)", "jump_to": "jump_to(section)"}
+
+agent_description: |-
+  You are a helpful assistant that helps the User complete tasks. You should only respond in the JSON format as described below:
+  {{"answer": "<your final answer to the user>"}}
+  {replace[instructions]}
+  {replace[feedback_prefix]}
+
+instructions: |
+  User wants to go from a source Wikipedia article to a target article in the least amount of clicks.
+  User can only click on articles I've already seen by scrolling the page, and the clickable articles are formatted like this in the article content: <a href="article_link">text</a>.
+  User can also scroll down the page to see more content and links, jump to a section on the page, or go back to the previous article.
+  For example, if User is on the article for Animal and wants to get to the article for China and has seen the links Dog;Biology;Eagle;Amazon_Forest on the page, clicking on Eagle would be a good choice, since China has a very strong connection to the United States, and the mascot for the United States is the Eagle. Therefore, a good response would be:
+  {"answer": "click(Eagle)"}
+  Attention: the user is under a time constraint so you shouldn't spend too much time on a single page.
+
+user_template: |-
+  Current content I see on the article {replace[src]}:
+  [top of window]
+  {replace[content]}
+  [bottom of window]
+  I'm on the Wikipedia article for {replace[src]} and I want to get to the article for {replace[tgt]} in the least amount of clicks. The article links I've already seen in this article and that I can click on are: {replace[links]}.
+  I can also jump to the following sections on this article: {replace[headings]}.
+  I have {replace[remaining_scrolls]} scrolls left on this article. The previous article was: {replace[prev]}. What should I do next? Respond with {replace[actions_str]}.
+  
+user_initial_prefix: |
+  
+lmql_query_str: |-
+  lmql
+  sample(n=1, temperature={model_cfg[temperature]}, top_p={model_cfg[top_p]}, max_len=2*{model_cfg[max_len]})
+  """{prompt}"""
+  """{{"answer": "[next_action]""" where next_action in set(action_list)
+  if next_action=='click':
+      """([link])"}}""" where link in set(links)
+  elif next_action=='jump_to':
+      """([heading])"}}""" where heading in set(headings)
+  else:
+      """"}}"""
+
+
+assistant_prefix: "" # no prefix because this is done in the lmql query function
+demonstration_template: ""
+
+demonstrations_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/fewshot_click_demonstrations.tsv
+agent_runs_file: ${agent_runs_file}
+
