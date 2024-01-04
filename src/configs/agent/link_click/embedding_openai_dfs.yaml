@@ -1,0 +1,28 @@
+_target_: agents.EmbeddingLinkClickDFSAgent
+agent_name: link_click/embedding_openai_dfs
+fewshot: 0
+use_retry: True
+max_tries: 3
+max_actions: 50
+use_back: True
+use_feedback: True
+
+multiturn_demonstrations: True
+
+agent_description: ""
+
+instructions: ""
+
+user_template: |-
+  {{"source": "{replace[src]}", "target": "{replace[tgt]}", "links": "{replace[links]}"}}
+  
+demonstration_template: ""
+
+assistant_prefix: "" # no prefix because this is done in the lmql query function
+user_initial_prefix: ""
+
+demonstrations_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/fewshot_click_demonstrations_new.tsv
+agent_runs_file: ${agent_runs_file}
+
+embeddings_file: ${data_dir}/wikispeedia/embeddings/openai_wikispeedia.pickle
+

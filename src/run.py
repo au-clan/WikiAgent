@@ -63,7 +63,7 @@ async def main(cfg: DictConfig):
         # load agents from file
         agent_runs_df = pd.read_csv(cfg.restart_from_agents_file, sep='\t')
         agent_ids_list = agent_runs_df.groupby('agent_id').agg({'num_actions': 'last', 'is_finished_reason': 'last'}).reset_index().query('is_finished_reason == "none"')['agent_id'].tolist()
-        agents = [agents[agent_id] for agent_id in agent_ids_list]
+        agents = [agents[agent_id - cfg.experiment.agent_batch_id * cfg.experiment.agent_batch_size] for agent_id in agent_ids_list]
 
 
     results = []

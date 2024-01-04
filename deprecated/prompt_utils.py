@@ -30,3 +30,6 @@ def get_navigate_with_click_prompt(system_prompt: str, user_prompt: str,
 
 def wikify_article_name(name):
     return "_".join(name.strip().split(" "))
+
+def un_wikify_article_name(name):
+    return " ".join(name.strip().split("_"))

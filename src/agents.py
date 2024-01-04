@@ -18,6 +18,8 @@ from typing import Any, Coroutine, List
 import lmql
 import openai
 from pprint import pprint
+import pickle
+import numpy as np
 
 
 @define
@@ -228,7 +230,7 @@ class Agent:
         formatted_query = re.sub(r'(?<!\})\}(?!\})', '}}', formatted_query)
         
         
-        return lmql.query(formatted_query), formatted_query
+        return lmql.query(formatted_query)
     
     async def send_query(self, query, **kwargs) -> lmql.LMQLResult:
         """Receives the prepared prompt along with other info to fill in prompt and sends it to the model.
@@ -257,7 +259,7 @@ class Agent:
         self.user_prompt_history.append(self.prompt[-1].content)
 
         # Send prompt to model
-        query,query_str = self.get_query()
+        query = self.get_query()
         start = time()
         if not self.debug:
             response = await self.send_query(query)
@@ -509,7 +511,7 @@ class GPTLinkClickDFSAgent(LinkClickDFSAgent):
         return super().__attrs_post_init__()
     
     def get_query(self):
-        return [msg.prepare_for_generation() for msg in self.prompt], None
+        return [msg.prepare_for_generation() for msg in self.prompt]
     
     async def send_query(self, query):
         return await self.client.chat.completions.create(
@@ -528,11 +530,47 @@ class GPTLinkClickDFSAgent(LinkClickDFSAgent):
         """ Returns the OpenAI output JSON as a dict"""
         return json.loads(response.choices[0].message.content)
         
-    
+@define
+class EmbeddingLinkClickDFSAgent(LinkClickDFSAgent):
+    """
+    Same as LinkClickDFSAgent, but uses embeddings to choose next page.
+    """
+    embeddings_file: str = field(default="data/wikispeedia/embeddings/openai_wikispeedia.pickle")
+    embeddings: dict = field(default=None)
 
+    def __attrs_post_init__(self):
+        with open(self.embeddings_file, "rb") as f:
+            self.embeddings = pickle.load(f)
+        return super().__attrs_post_init__()
+    
+    def get_query(self) -> List[str]:
+        """ In this case, query=[possible links, target]"""
+        return self.observe_environment()['links'].split(";") + [self.target_page]
+    
+    async def send_query(self, query):
+        """ Returns the closest embedding to the target page."""
+        # compute cosine similarity between target and all links
+        target_embedding = self.embeddings[query[-1]]
+        links = query[:-1]
+        links_embeddings = [self.embeddings[link] for link in links]
 
+        def cosine_similarity(a, b):
+            return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+        
+        similarities = {}
+        for i, link in enumerate(links):
+            similarities[link] = cosine_similarity(target_embedding, links_embeddings[i])
+
+        # get max similarity link, value
+        max_link = max(similarities, key=similarities.get)
+        max_value = similarities[max_link]
+        return {"next_page": max_link, "similarity": max_value}
     
+    def extract_response(self, response):
+        return str(response)
     
+    def get_variables_from_response(self, response):
+        return response
 
 
 @define
