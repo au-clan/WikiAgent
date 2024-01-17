@@ -14,7 +14,6 @@ action_list_to_str: {"scroll_down": "scroll_down", "back": "back", "click": "cli
 
 agent_description: |-
   You are a expert JSON builder designed to assist in completing tasks.
-  {replace[instructions]}{replace[feedback_prefix]}
 
 instructions: |
   I'm playing a game where, given source and target Wikipedia articles, my goal is to reach the target article starting from the source article in as few clicks as possible. I need to click on the link to the article that will take me closer to the target, **only** from the provided candidates, which are the links I've already seen while browsing the current article. 
@@ -38,7 +37,7 @@ instructions: |
 user_template: |-
   {{"window_content": "{replace[content]}",  "remaining_scrolls": "{replace[remaining_scrolls]}", "source": "{replace[src]}", "target": "{replace[tgt]}", "article_links_seen_so_far": "{replace[links]}", "article_sections": "{replace[headings]}", "previous_article": "{replace[prev]}", "available_actions": "{replace[actions_str]}"}}
 
-user_initial_prefix: |
+user_initial_prefix:   {replace[instructions]}{replace[feedback_prefix]}
   
 lmql_query_str: |-
   lmql
