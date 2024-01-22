@@ -229,7 +229,6 @@ class Agent:
         formatted_query = re.sub(r'(?<!\{)\{(?!\{)', '{{', formatted_query)
         formatted_query = re.sub(r'(?<!\})\}(?!\})', '}}', formatted_query)
         
-        
         return lmql.query(formatted_query)
     
     async def send_query(self, query, **kwargs) -> lmql.LMQLResult:
@@ -255,7 +254,9 @@ class Agent:
         self.build_prompt(feedback)
         prepared_prompt = prepare_chat(self.tokenizer,self.prompt)
         self.prepared_prompt = prepared_prompt
-        if self.verbose: printc(f"Agent {self.agent_id}\nPROMPT: {self.prepared_prompt}", c="p")
+        if self.verbose: 
+            printc(f"Agent {self.agent_id}\nPROMPT: {self.prepared_prompt}", c="p")
+                
         self.user_prompt_history.append(self.prompt[-1].content)
 
         # Send prompt to model
@@ -662,7 +663,16 @@ if next_action=='click':
     def extract_actions_from_variables(self, variables: dict) -> dict:
         """ Processes the model output and returns a dict with the agent's choices."""
         assert 'next_action' in variables, f"Invalid variables: {variables}"
-        assert variables['next_action'] in self.action_list, f"Invalid action: {variables['next_action']}"
+        assert variables['next_action'].split("(")[0] in self.action_list, f"Invalid action: {variables['next_action']}"
+
+        # for unconstrained actions, extract the argument from the parentheses
+        if variables['next_action'].split("(")[0] == "click" and "link" not in variables:
+            variables['link'] = variables['next_action'].split("(")[1][:-1]
+            variables['next_action'] = variables['next_action'].split("(")[0]
+        elif variables['next_action'].split("(")[0] == "jump_to" and "heading" not in variables:
+            variables['heading'] = variables['next_action'].split("(")[1][:-1]
+            variables['next_action'] = variables['next_action'].split("(")[0]
+        print(f"Extracted actions: {variables}")
         return variables
     
     def apply_actions(self, actions: dict):
@@ -670,6 +680,8 @@ if next_action=='click':
             self.environment.move("down")
             # we don't count scrolls as actions, and there's +1 num_actions in the agent.run
             self.num_actions -= 1
+        
+        # check for heading and link in the action, if not, it means the argument is in parentheses like click(link)
         elif actions['next_action'] == "click":
             self.environment.change_page(actions['link'])
             if self.clean_prompt_on_click:
@@ -679,8 +691,10 @@ if next_action=='click':
             self.environment.move(actions['heading'])
             # we don't count scrolls as actions, and there's +1 num_actions in the agent.run
             self.num_actions -= 1
-        else: # actions['next_action'] == "back":
+        elif actions['next_action'] == "back":
             self.environment.back()
+        else:
+            raise AssertionError(f"Invalid action: {actions['next_action']}")
     
 ## Below is the agent that uses WebNavigatorHTML and WebWikiEnvironment, which are deprecated. ##
 # @define

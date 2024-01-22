@@ -277,7 +277,7 @@ def navigate_web(cfg: DictConfig):
     # print(nav.getHTML())
 
 def navigate_TextWikiEnvironment(cfg: DictConfig):
-    current = "Flamingo"
+    current = "ASCII"
     nav = NavigatorHTML(pages_path=cfg.pages_folder, model_name=cfg.model.model_name, token_window=1000)
     nav.set_curr_doc(current, window_start=0)
     env = TextWikiEnvironment(nav=nav)
@@ -285,7 +285,7 @@ def navigate_TextWikiEnvironment(cfg: DictConfig):
     print("All links:", env.get_links())
     printc(f"Current page:{env.get_current_page()}", c="g")
     printc(f"Current seen links:{env.get_clickable_links()}", c="b")
-    printc(f"Current content:{env.get_content()}", c="y")
+    print("Current content:",env.get_content())
     printc(f"Current headings:{env.get_headings()}", c="r")
 
     # output content to txt file
@@ -313,7 +313,8 @@ def navigate_TextWikiEnvironment(cfg: DictConfig):
         print("\n\n")
         printc(f"Current page:{env.get_current_page()}", c="g")
         printc(f"Current seen links:{env.get_clickable_links()}", c="b")
-        printc(f"Current content:{env.get_content()}", c="y")
+        # remove the 0x00 utf-8 character
+        print("Current content:",env.get_content())
         printc(f"Current headings:{env.get_headings()}", c="r")
 
 

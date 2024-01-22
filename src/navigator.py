@@ -111,6 +111,9 @@ class NavigatorHTML:
         # turn 2 spaces or more into \t
         self.text = re.sub(r" {2,}", "\t", self.text)
 
+        # for the ASCII page, remove the null character
+        self.text = self.text.replace('\\0', '')
+
     def get_tokens(self) -> List[tuple]:
         """
         Breaks the text into a list of strings, where each string stops at a link. This is so that links aren't split when scrolling.
