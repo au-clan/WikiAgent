@@ -21,9 +21,13 @@ class NavigatorHTML:
     First implementation of the HTML Navigator.
     Moves from page to page by just transforming html to text.
     """
-    def __init__(self, pages_path, model_name="meta-llama/Llama-2-7b-chat-hf", token_window=300, overlap=0):
+    def __init__(self, pages_path, model_name="meta-llama/Llama-2-7b-chat-hf", token_window=300, overlap=0, tokenizer=None):
         self.pages_path = pages_path
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        if tokenizer is None:
+            print("HII")
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name) if not "gpt" in model_name else AutoTokenizer.from_pretrained("gpt2")
+        else:
+            self.tokenizer = tokenizer
         self.current_page = None
         self.text = None # Whole document text
         self.links = None # Links existing in the whole document

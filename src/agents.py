@@ -334,7 +334,7 @@ class BaseWikiAgent(Agent):
             'is_finished': self.is_finished()[0],
             'is_finished_reason': self.is_finished()[1],
             'path_so_far': ";".join(self.environment.full_page_history),
-            'user_prompt': self.user_prompt_history[-1],
+            #'user_prompt': self.user_prompt_history[-1],
         }
         self.run_df = pd.concat([self.run_df, pd.DataFrame([row])], ignore_index=True)
 
@@ -606,6 +606,7 @@ if next_action=='click':
         nav_kwargs = {key: kwargs[key] for key in ['pages_path']}
         nav_kwargs['model_name'] = self.model_cfg['model_name']
         nav_kwargs['token_window'] = self.window_size
+        nav_kwargs['tokenizer'] = self.tokenizer
         nav = NavigatorHTML(**nav_kwargs)
         nav.set_curr_doc(kwargs['current_page'])
         # extract environment arguments from kwargs
@@ -695,7 +696,46 @@ if next_action=='click':
             self.environment.back()
         else:
             raise AssertionError(f"Invalid action: {actions['next_action']}")
-    
+
+@define
+class GPTWikiTextAgent(WikiTextAgent):
+    """
+    Same as WikiTextAgent, but uses OpenAI API instead of LMQL.
+    """
+    client = field(default=None)
+    used_prompt_tokens = field(default=0)
+    used_completion_tokens = field(default=0)
+
+    def __attrs_post_init__(self):
+        self.client = openai.AsyncOpenAI()
+        return super().__attrs_post_init__()
+
+    def get_query(self):
+        return [msg.prepare_for_generation() for msg in self.prompt]
+
+    async def send_query(self, query):
+        self.num_calls += 1
+        return await self.client.chat.completions.create(
+            seed=42,
+            model=self.model_cfg['model_name'],
+            response_format={"type": "json_object"},
+            messages=query,
+            temperature=self.model_cfg['temperature'],
+            top_p=self.model_cfg['top_p'],
+            max_tokens=200,
+        )
+    def extract_response(self, response):
+        self.used_prompt_tokens += response.usage.prompt_tokens
+        self.used_completion_tokens += response.usage.completion_tokens
+        return response.choices[0].message.content
+
+    def get_variables_from_response(self, response):
+        """ Returns the OpenAI output JSON as a dict"""
+        dict_ = json.loads(response.choices[0].message.content)
+        # turn "answer" key to "next_action"
+        dict_['next_action'] = dict_.pop('answer')
+        return dict_
+
 ## Below is the agent that uses WebNavigatorHTML and WebWikiEnvironment, which are deprecated. ##
 # @define
 # class WikiTextAgent(BaseWikiAgent):
