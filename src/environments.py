@@ -130,8 +130,8 @@ class TextWikiEnvironment(WikiEnvironment):
     use_dfs = field(default=True)
     nav = field(factory=NavigatorHTML)
     window_position_page: dict = field(factory=dict) # {page: last_window}
-    links_seen_on_page: dict = field(default={}) # {page: [links]}
-    visited_headings_on_page: dict = field(default={}) # {page: [headings]}
+    links_seen_on_page: dict = field(factory=dict) # {page: [links]}
+    visited_headings_on_page: dict = field(factory=dict) # {page: [headings]}
     visited_links: List[str] = field(factory=list) # links that have been visited
 
     def __attrs_post_init__(self):
@@ -160,6 +160,7 @@ class TextWikiEnvironment(WikiEnvironment):
             else:
                 dict_to_update[key].append(value)
         dict_to_update[key] = list(set(dict_to_update[key]))
+        return dict_to_update
 
     def get_current_page(self):
         return self.nav.current_page
@@ -200,10 +201,11 @@ class TextWikiEnvironment(WikiEnvironment):
         else: # move to heading
             self.nav.move_heading(direction)
             # update visited headings
-            self.update_history_dict(self.visited_headings_on_page, self.nav.current_page, direction)
+            self.visited_headings_on_page = self.update_history_dict(self.visited_headings_on_page, self.nav.current_page, direction)
+            
         
         # update links seen
-        self.update_history_dict(self.links_seen_on_page, self.nav.current_page, self.nav.window_links)
+        self.links_seen_on_page = self.update_history_dict(self.links_seen_on_page, self.nav.current_page, self.nav.window_links)
         # update window position
         self.window_position_page[self.nav.current_page] = self.nav.window
         # update content history
@@ -225,7 +227,7 @@ class TextWikiEnvironment(WikiEnvironment):
         # update window position
         self.window_position_page[self.nav.current_page] = self.nav.window
         # update links seen
-        self.update_history_dict(self.links_seen_on_page, self.nav.current_page, self.nav.window_links)
+        self.links_seen_on_page = self.update_history_dict(self.links_seen_on_page, self.nav.current_page, self.nav.window_links)
         # update page history
         self.page_history.append(new_page_wikified)
         self.full_page_history.append(new_page_wikified)

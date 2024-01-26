@@ -355,6 +355,9 @@ def retextMarkdownLinks(text) :
     return text
 
 def filter_links_from_text(text, valid_links):
+    """
+    TODO: Change this to html link format, instead of markdown.
+    """
     # Regular expression pattern to find all [content](link) occurrences
     pattern = r'\[([^\]]+)\]\(([^)]+)\)'
 

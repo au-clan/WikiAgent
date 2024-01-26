@@ -1,5 +1,5 @@
 _target_: agents.WikiTextAgent
-agent_name: navigate/headings_reason
+agent_name: navigate/headings
 fewshot: 0
 use_retry: True
 max_tries: 3

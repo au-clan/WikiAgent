@@ -252,6 +252,9 @@ class Agent:
         """        
         # Prepare prompt
         self.build_prompt(feedback)
+        # see pointers
+        print(f"links_seen_on_page: {id(self.environment.links_seen_on_page)}\nHeadings visited: {id(self.environment.visited_headings_on_page)}")
+        print(f"\nEnvironment: {id(self.environment)}\nNavigator: {id(self.environment.nav)}")
         prepared_prompt = prepare_chat(self.tokenizer,self.prompt)
         self.prepared_prompt = prepared_prompt
         if self.verbose: 
@@ -613,6 +616,7 @@ if next_action=='click':
         env_kwargs = {key: kwargs[key] for key in ['links_file']}
         env_kwargs['nav'] = nav
         self.environment = TextWikiEnvironment(**env_kwargs)
+
         self.source_page = self.environment.get_current_page()
 
     def get_available_actions_str(self):
@@ -639,6 +643,8 @@ if next_action=='click':
             self.valid_action_list.remove("back")  
 
     def observe_environment(self):
+        print(self.environment.get_headings()) ###
+        print(self.environment.get_clickable_links()) ###
         prev_page = self.environment.page_history[-2] if len(self.environment.page_history) > 1 else "none"
         self.set_valid_actions(self.environment.get_clickable_links(), self.environment.get_headings(), self.environment.get_scroll_position()[1] - self.environment.get_scroll_position()[0])
         action_list_str = self.get_available_actions_str()

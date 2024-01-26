@@ -277,8 +277,8 @@ def navigate_web(cfg: DictConfig):
     # print(nav.getHTML())
 
 def navigate_TextWikiEnvironment(cfg: DictConfig):
-    current = "ASCII"
-    nav = NavigatorHTML(pages_path=cfg.pages_folder, model_name=cfg.model.model_name, token_window=1000)
+    current = "Theatre"
+    nav = NavigatorHTML(pages_path=cfg.pages_folder, model_name=cfg.model.model_name, token_window=500)
     nav.set_curr_doc(current, window_start=0)
     env = TextWikiEnvironment(nav=nav)
 
@@ -288,9 +288,6 @@ def navigate_TextWikiEnvironment(cfg: DictConfig):
     print("Current content:",env.get_content())
     printc(f"Current headings:{env.get_headings()}", c="r")
 
-    # output content to txt file
-    with open("content.txt", "w") as f:
-        f.write(env.get_content())
         
     #interact with the environment
 
