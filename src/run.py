@@ -41,7 +41,6 @@ async def main(cfg: DictConfig):
     paths_real = get_paths_real_sample(n=cfg.experiment.num_agents, paths_real_file=cfg.paths_real_file, experiment=cfg.experiment.experiment, agent_batch_size=cfg.experiment.agent_batch_size, agent_batch_id=cfg.experiment.agent_batch_id)
     agents = []
 
-    paths_real = [{'src': 'Theatre', 'tgt': 'Zebra'}, {'src': 'Theatre', 'tgt': 'Portugal'}] ###
     for i,path in enumerate(paths_real):
         if cfg.experiment.override:
             path['src'] = cfg.experiment.src; path['tgt'] = cfg.experiment.tgt ###
@@ -55,15 +54,6 @@ async def main(cfg: DictConfig):
         agent.set_target_page(path["tgt"])
         agents.append(agent)
     
-    print(f"Agent 0:")
-    print(f"Links seen: {id(agents[0].environment.links_seen_on_page)}\nHeadings visited: {id(agents[0].environment.visited_headings_on_page)}")
-    print(f"\nEnvironment: {id(agents[0].environment)}\nNavigator: {id(agents[0].environment.nav)}")
-    print(f"Visited links: {id(agents[0].environment.visited_links)}\n")
-    print(f"Agent 1:")
-    print(f"Links seen: {id(agents[1].environment.links_seen_on_page)}\nHeadings visited: {id(agents[1].environment.visited_headings_on_page)}")
-    print(f"\nEnvironment: {id(agents[1].environment)}\nNavigator: {id(agents[1].environment.nav)}")
-    print(f"Visited links: {id(agents[1].environment.visited_links)}\n")
-
     # in case we want to select a specific agent
     if cfg.experiment.agent_id >= 0:
         agents = [agents[cfg.experiment.agent_id]]

@@ -1,0 +1,9 @@
+num_agents: 1500
+agent_batch_id: 0
+agent_batch_size: 0
+agent_id: -1
+override: False
+experiment: click
+src: United_States
+tgt: Gold(III)_chloride
+debug_mode: False

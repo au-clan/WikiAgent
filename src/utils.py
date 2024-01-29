@@ -19,10 +19,11 @@ def get_paths_real_sample(n=200, agent_batch_size=200, agent_batch_id=0 , paths_
     Gets a sample of unique paths from the paths_real_processed.tsv file.
     Note: right now returns only the src and tgt pages.
     """
-    assert experiment in ['uniform_spl', 'human_test_set', "random"], f"Experiment {experiment} not supported."
+    assert experiment in ['uniform_spl', 'human_test_set', "random",'click'], f"Experiment {experiment} not supported."
     assert agent_batch_size >= 0, f"agent_batch_size must be >= 0, got {agent_batch_size}"
     assert agent_batch_id >= 0, f"agent_batch_id must be >= 0, got {agent_batch_id}"
-    assert agent_batch_id < n/agent_batch_size, f"agent_batch_id must be < n/agent_batch_size, got {agent_batch_id} and {n/agent_batch_size}"
+    if agent_batch_size > 0:
+        assert agent_batch_id < n/agent_batch_size, f"agent_batch_id must be < n/agent_batch_size, got {agent_batch_id} and {n/agent_batch_size}"
 
     paths_real_df = pd.read_csv(paths_real_file, sep='\t')
     paths_real_sample_df = []
@@ -38,8 +39,13 @@ def get_paths_real_sample(n=200, agent_batch_size=200, agent_batch_id=0 , paths_
         # paths_real_sample_df = paths_real_df[paths_real_df["is_path_finished"] == 1].groupby(["src", "tgt"]).agg({"is_path_finished": "count", "spl": "min", "mhepl": "min"}).query("is_path_finished >= 4").sample(n=n, random_state=42)
         df = paths_real_df[paths_real_df["is_path_finished"] == 1].groupby(["src", "tgt"]).agg({"is_path_finished": "count", "spl": "min", "mhepl": "min"}).query("is_path_finished >= 4").reset_index()
         paths_real_sample_df = df.sample(n=n, random_state=42)
-    else:
+    elif experiment == 'random':
         paths_real_sample_df = paths_real_df.groupby(['src', 'tgt']).agg({"shpl": "min", "shepl": "min"}).reset_index().sample(n=n, random_state=42)
+    else: # click
+        # just takes the whole file
+        paths_real_sample_df = paths_real_df
+        agent_batch_size = len(paths_real_sample_df)
+        print(paths_real_sample_df.columns)
     
     paths_real_sample = []
     for i, row in paths_real_sample_df.iterrows():

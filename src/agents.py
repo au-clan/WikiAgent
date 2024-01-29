@@ -252,6 +252,9 @@ class Agent:
         """        
         # Prepare prompt
         self.build_prompt(feedback)
+        # see pointers
+        # print(f"links_seen_on_page: {id(self.environment.links_seen_on_page)}\nHeadings visited: {id(self.environment.visited_headings_on_page)}")
+        # print(f"\nEnvironment: {id(self.environment)}\nNavigator: {id(self.environment.nav)}")
         prepared_prompt = prepare_chat(self.tokenizer,self.prompt)
         self.prepared_prompt = prepared_prompt
         if self.verbose: 
