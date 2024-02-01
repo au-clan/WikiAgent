@@ -568,7 +568,12 @@ class EmbeddingLinkClickDFSAgent(LinkClickDFSAgent):
         # get max similarity link, value
         max_link = max(similarities, key=similarities.get)
         max_value = similarities[max_link]
-        return {"next_page": max_link, "similarity": max_value}
+
+        # return dict with next_page, similarity (of the next page), and the similarity of all links ordered, and the links ordered
+        # order the similarities dict
+        links = sorted(links, key=lambda x: similarities[x], reverse=True)
+
+        return {"next_page": max_link, "similarity": max_value, "similarities": sorted(similarities.values(), reverse=True), "links": links}
     
     def extract_response(self, response):
         return str(response)
