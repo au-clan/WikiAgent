@@ -1,3 +1,6 @@
+# WARNING
+This is deprecated. Check out the main README for instructions to download the data.
+
 # Getting the Relevant Dataset
 To obtain the necessary dataset for the project, please follow these steps:
 

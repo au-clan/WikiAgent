@@ -6,16 +6,25 @@ defaults:
   - hydra: inference
 
 # Directories (these are absolute paths on the nfs server)
-nfs_dir: /dlabdata1
+nfs_dir: /dlabdata1 # for EPFL dlab members using NFS storage
+
+# working directory. Change "charneca" to your dlab username
 work_dir: ${nfs_dir}/charneca/WikiAgent #${hydra:runtime.cwd} if running locally only
 data_dir: ${work_dir}/data
 
-# path to output directory, created dynamically by hydra
+# where logs of the runs will be created
 logs_dir: ${work_dir}/logs
 
+# name of the file that logs the agents' activities in a run
 agent_runs_file: ${hydra:runtime.output_dir}/agent_runs.tsv
+
+# file where the missions are sampled from
 paths_real_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/paths_real_processed.tsv
+
+# file with the links between articles
 links_file: ${data_dir}/wikispeedia/wikispeedia_paths-and-graph/links.tsv
+
+# files with the HTML of the Wikipedia articles
 pages_folder: ${data_dir}/wpcd/wp/
 restart_from_agents_file: ""
 
