@@ -6,14 +6,14 @@ model_type: chat
 
 temperature: 0.5
 max_len: 4096
-dtype: bfloat16 #set to False if on CPU
+dtype: bfloat16 #set to float32 if on CPU
 load_in_8bit: False
 load_in_4bit: False
 num_threads: 16
 batch_size: 1
 top_p: 1
 do_sample: True # if False is the same as temperature = 0
-device: 'cuda' # or cuda
+device: 'cuda' # or cpu
 
 stop: '}'
 
@@ -23,5 +23,5 @@ lmql:
   inprocess: False
   load_in_8bit: ${..load_in_8bit}
   load_in_4bit: ${..load_in_4bit}
-  use_flash_attention_2: True
+  use_flash_attention_2: True #set False if on CPU
   sliding_window: 4096

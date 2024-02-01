@@ -13,7 +13,7 @@ num_threads: 16
 batch_size: 1
 top_p: 1
 do_sample: True # if False is the same as temperature = 0
-device: 'cuda' # or cuda
+device: 'cuda' # or cpu
 
 stop: '}'
 
@@ -23,4 +23,4 @@ lmql:
   inprocess: False
   load_in_8bit: ${..load_in_8bit}
   load_in_4bit: ${..load_in_8bit}
-  use_flash_attention_2: True
+  use_flash_attention_2: True #set False if on CPU
