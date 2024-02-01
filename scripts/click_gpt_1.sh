@@ -9,7 +9,7 @@ source activate ../miniconda3/envs/wikinav #|| { echo "Failed to activate conda 
 filename=$(basename -- "$0"); extension="${filename##*.}"; filename="${filename%.*}"
 
 python src/run.py --multirun \
-    experiment=click paths_real_file=/dlabdata1/charneca/WikiNav/data/wikispeedia/wikispeedia_paths-and-graph/top30_cur_tgt_1.tsv \
+    experiment=click paths_real_file=/dlabdata1/charneca/WikiAgent/data/wikispeedia/wikispeedia_paths-and-graph/top30_cur_tgt_1.tsv \
     experiment.agent_batch_size=1500 \
     model=gpt-3.5-turbo \
     agent=navigate/gpt_headings,navigate/gpt_headings_reason \

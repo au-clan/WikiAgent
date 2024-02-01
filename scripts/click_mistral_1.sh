@@ -10,7 +10,7 @@ filename=$(basename -- "$0"); extension="${filename##*.}"; filename="${filename%
 
 python src/run.py \
     --multirun model.batch_size=2\
-    experiment=click paths_real_file=/dlabdata1/charneca/WikiNav/data/wikispeedia/wikispeedia_paths-and-graph/top30_cur_tgt_1.tsv \
+    experiment=click paths_real_file=/dlabdata1/charneca/WikiAgent/data/wikispeedia/wikispeedia_paths-and-graph/top30_cur_tgt_1.tsv \
     model=mistral_7b_instruct_v0.2 \
     agent=navigate/lmql_headings,navigate/lmql_headings_reason \
     agent.max_actions=1 \

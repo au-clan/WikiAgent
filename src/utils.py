@@ -400,13 +400,13 @@ def emptyFolder(path):
         elif os.path.isdir(item_path):
             shutil.rmtree(item_path)
 
-def getWikiNavFolder():
+def getWikiAgentFolder():
     """
-    Returns the absolute path to the WikiNav folder.
+    Returns the absolute path to the WikiAgent folder.
     """
     current_dir = os.getcwd()
-    root = current_dir.split("/WikiNav/")[0]
-    wikinavFolder = os.path.join(root, "WikiNav")
+    root = current_dir.split("/WikiAgent/")[0]
+    wikinavFolder = os.path.join(root, "WikiAgent")
     return wikinavFolder
 
 def getHeadings(page_source):

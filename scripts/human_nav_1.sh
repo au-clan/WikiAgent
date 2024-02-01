@@ -25,7 +25,7 @@ python src/run.py \
     model=mistral_7b_instruct_v0.2 \
     agent=navigate/lmql_headings_reason \
     experiment.agent_batch_id=1\
-    restart_from_agents_file=/dlabdata1/charneca/WikiNav/logs/inference/multiruns/human_nav_1/2023-12-26_11-27-46/1/agent_runs.tsv \
+    restart_from_agents_file=/dlabdata1/charneca/WikiAgent/logs/inference/multiruns/human_nav_1/2023-12-26_11-27-46/1/agent_runs.tsv \
     agent.fewshot=0 \
     run_name="${filename}" \
     > "scripts/${filename}.log" 2>&1

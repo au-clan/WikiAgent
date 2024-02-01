@@ -9,7 +9,7 @@ source activate ../miniconda3/envs/wikinav #|| { echo "Failed to activate conda 
 filename=$(basename -- "$0"); extension="${filename##*.}"; filename="${filename%.*}"
 
 python src/run.py --multirun \
-    experiment=click paths_real_file=/dlabdata1/charneca/WikiNav/data/wikispeedia/wikispeedia_paths-and-graph/top30_cur_tgt.tsv \
+    experiment=click paths_real_file=/dlabdata1/charneca/WikiAgent/data/wikispeedia/wikispeedia_paths-and-graph/top30_cur_tgt.tsv \
     experiment.agent_batch_size=30 experiment.num_agents=30 \
     agent=link_click/embedding_deepwalk_dfs \
     agent.max_actions=1 \

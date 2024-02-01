@@ -13,7 +13,7 @@ from typing import List, Dict, Tuple
 from html2text_ import clean, clean_text
 from utils import get_links, waitForDownload, delete_file_if_exists, getActiveText
 from utils import page2href, get_links, formatPageURL, retextMarkdownLinks
-from utils import getWikiNavFolder, emptyFolder, getHeadings, getTextHTML
+from utils import getWikiAgentFolder, emptyFolder, getHeadings, getTextHTML
 from formatHTML import formatHTML
 
 class NavigatorHTML:
@@ -270,7 +270,7 @@ class WebNavigatorHTML:
         # In case html pages should be formatted on the fly
         if self.onFly:
             # Folder where active pages are stored
-            self.activePagesPath = getWikiNavFolder() + "/data/wpcd/wp/activePages/" 
+            self.activePagesPath = getWikiAgentFolder() + "/data/wpcd/wp/activePages/" 
             # If the folder doesn't exist already create it
             if not os.path.exists(self.activePagesPath):
                 os.makedirs(self.activePagesPath)

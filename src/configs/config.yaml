@@ -7,7 +7,7 @@ defaults:
 
 # Directories (these are absolute paths on the nfs server)
 nfs_dir: /dlabdata1
-work_dir: ${nfs_dir}/charneca/WikiNav #${hydra:runtime.cwd} if running locally only
+work_dir: ${nfs_dir}/charneca/WikiAgent #${hydra:runtime.cwd} if running locally only
 data_dir: ${work_dir}/data
 
 # path to output directory, created dynamically by hydra
