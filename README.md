@@ -30,11 +30,11 @@ Here's the breakdown of the command:
 - `python src/run.py`: run the main file.
 - `--multirun`: Hydra command for running multiple experiments in a row. In this case, we are running a single experiment.
 - `model.batch_size=2`: The batch size of the model.
-- `experiment=random`: The experiment to run, defined in `src/config/experiment`. 
+- `experiment=random`: The experiment to run, defined in `src/configs/experiment`. 
     - `random`: randomly samples unique missions from the Wikispeedia user missions.
     - `human_test_set`: samples missions that have been played at least 4 times by humans.
-- `model=mistral_7b_instruct_v0.2`: The model to use, defined in `src/config/model`. To create a new model, copy one of the existing model files and change the parameters.
-- `agent=navigate/lmql_headings_reason`: Agent type, defined in `src/config/agent`.
+- `model=mistral_7b_instruct_v0.2`: The model to use, defined in `src/configs/model`. To create a new model, copy one of the existing model files and change the parameters.
+- `agent=navigate/lmql_headings_reason`: Agent type, defined in `src/configs/agent`.
     -  `navigate` -> WikiAgent; `link_click` -> links-only WikiAgent.
     - `lmql`-> constrained decoding.
     - `reason` -> reasoning before action (ReAct).
