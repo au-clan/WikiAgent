@@ -15,7 +15,7 @@ We use the `hydra-core` library to manage configurations of agents, models, expe
 - In `src/configs/config.yaml` is the main config file. Change the directories based on your setup. For DLAB users, you can just change your username in `workdir`.
 
 ### Quick start
-The following command runs a single experiment with the ReAct constrained WikiAgent on 100 missions sampled randomly from the Wikispeedia user missions. The main output of this experiment will be the file with all the agent actions in `logs/multiruns/test_run/0/agent_runs.tsv`.
+The following command runs a single experiment with the ReAct constrained WikiAgent on 100 missions sampled randomly from the Wikispeedia user missions. The main output of this experiment will be the file with all the agent actions in `logs/inference/multiruns/test_run/0/agent_runs.tsv`.
 
 ```bash
 python src/run.py --multirun model.batch_size=2\
@@ -40,7 +40,7 @@ Here's the breakdown of the command:
     - `reason` -> reasoning before action (ReAct).
 - `experiment.num_agents=100`: The number of missions to run.
 - `+agent.verbose=True`: Print the prompt at each step.
-- `run_name="test_run"`: The name of the run. The logs are saved in `logs/multiruns/<run_name>`.
+- `run_name="test_run"`: The name of the run. The logs are saved in `logs//inference/multiruns/<run_name>`.
 
 Any other parameter can be changed in the command line. If the parameter is not specified in the `yaml` files (for agent, model, etc.), it can still be changed by adding a `+` before the parameter name.
 
