@@ -1,6 +1,7 @@
 
-
-<h1 style="text-align: center;">WikiAgent: LLM-powered agent for targeted Wikipedia navigation</h1>
+<h1 align="center">
+    <p>WikiAgent: LLM-powered agent for targeted Wikipedia navigation</p>
+</h1>
 
 ![WikiAgent navigating a page](assets/wikiagent_mainfig.png)
 
