@@ -1,11 +1,8 @@
 
-<div alig="center">
-  <center><h1>WikiAgent: LLM-powered agent for targeted Wikipedia navigation</h1></center>
-</div>
 
-<div align="center">
-  <img src="assets/wikiagent_mainfig.png" alt="WikiAgent navigating a page" style="border: 1px solid black; border-radius: 20px;"/>
-</div>
+<h1 style="text-align: center;">WikiAgent: LLM-powered agent for targeted Wikipedia navigation</h1>
+
+![WikiAgent navigating a page](assets/wikiagent_mainfig.png)
 
 # Overview
 
@@ -18,9 +15,7 @@
 
 # LLM-Agent-Environment interaction
 
-<div align="center">
-  <img src="assets/llm-agent-env.png" alt="LLM-Agent-Environment interaction" style="border: 1px solid black; border-radius: 15px;"/>
-</div>
+![LLM-Agent-Environment interaction](assets/llm-agent-env.png)
 
 The main goal of this framework is to facilitate the development of agents with varying capabilities in a modular and easy-to-experiment way. The interface for LLM interaction is handled by LMQL, allowing easy model serving, asynchronous batching, and automatic redistribution of LLM responses among agents. Our framework is compatible with any chat fine-tuned model from HuggingFace, and the changes necessary to account for other models ([llama.cpp](https://github.com/ggerganov/llama.cpp) or OpenAI API) are minimal. We also implement an abstract `Environment` class, which serves mainly as a barebones base from which to build the main environment for Wikipedia page navigation environment.
 
@@ -30,11 +25,11 @@ The `Agent` class is designed for constrained decoding and extensibility, allowi
 
 Key methods and subroutines in the `Agent` class include:
 
-- **`build_prompt`**: Constructs the prompt based on the `config.yaml` file. It observes the environment, integrates state variables into the last user message, and outputs a chat log formatted as a list of dictionaries (`{"role": [role], "content": [text content]}`).
+- **`build_prompt`**: Constructs the prompt based on the `[agent_config].yaml` file. It observes the environment, integrates state variables into the last user message, and outputs a chat log formatted as a list of dictionaries (`{"role": [role], "content": [text content]}`).
 
 - **`prepare_chat`**: Converts the message list from `build_prompt` into a text block, adapting to different LLM chat templates. Outputs a string for model input.
 
-- **`get_query`**: Processes the text prompt, handling special characters sensitive to LMQL, and constructs the LMQL query using the `config.yaml` template. Outputs an LMQL query object.
+- **`get_query`**: Processes the text prompt, handling special characters sensitive to LMQL, and constructs the LMQL query using the `[agent_config].yaml` template. Outputs an LMQL query object.
 
 - **`send_query`**: Implemented in child classes, this method passes variables (actions, clickable links, etc.) to the LMQL query, facilitating constrained LLM decoding. It supports asynchronous LLM querying and batching in the LMQL backend. Outputs an LMQL result object.
 
