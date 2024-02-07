@@ -3,8 +3,9 @@
   <center><h1>WikiAgent: LLM-powered agent for targeted Wikipedia navigation</h1></center>
 </div>
 
-![WikiAgent navigating a page](assets/wikiagent_mainfig.png)
-
+<div align="center">
+  <img src="assets/wikiagent_mainfig.png" alt="WikiAgent navigating a page" style="border: 1px solid black; border-radius: 20px;"/>
+</div>
 
 # Overview
 
@@ -17,7 +18,9 @@
 
 # LLM-Agent-Environment interaction
 
-![LLM-Agent-Environment interaction](assets/llm-agent-env.png)
+<div align="center">
+  <img src="assets/llm-agent-env.png" alt="LLM-Agent-Environment interaction" style="border: 1px solid black; border-radius: 15px;"/>
+</div>
 
 The main goal of this framework is to facilitate the development of agents with varying capabilities in a modular and easy-to-experiment way. The interface for LLM interaction is handled by LMQL, allowing easy model serving, asynchronous batching, and automatic redistribution of LLM responses among agents. Our framework is compatible with any chat fine-tuned model from HuggingFace, and the changes necessary to account for other models ([llama.cpp](https://github.com/ggerganov/llama.cpp) or OpenAI API) are minimal. We also implement an abstract `Environment` class, which serves mainly as a barebones base from which to build the main environment for Wikipedia page navigation environment.
 
