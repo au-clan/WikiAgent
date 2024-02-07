@@ -85,7 +85,7 @@ Here's the breakdown of the command:
     - `reason` -> reasoning before action (ReAct).
 - `experiment.num_agents=100`: The number of missions to run.
 - `+agent.verbose=True`: Print the prompt at each step.
-- `run_name="test_run"`: The name of the run. The logs are saved in `logs//inference/multiruns/<run_name>`.
+- `run_name="test_run"`: The name of the run. The logs are saved in `logs/inference/multiruns/<run_name>`.
 
 Any other parameter can be changed in the command line. If the parameter is not specified in the `yaml` files (for agent, model, etc.), it can still be changed by adding a `+` before the parameter name.
 
